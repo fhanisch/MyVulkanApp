@@ -9,6 +9,9 @@
 #include <string.h>
 #include <vulkan\vulkan.h>
 
+VkInstance instance;
+VkDevice device;
+
 static const char appName[] = "MyVulkanApp";
 static const char engineName[] = "MyVulkanEngine";
 
@@ -53,7 +56,7 @@ void printStats(VkPhysicalDevice device)
 	printf("Anzahl Queue-Familien: %u\n", queueFamilyCount);
 	for (uint32_t i = 0; i < queueFamilyCount; i++)
 	{
-		printf("Queue Family Number # %u\n", i);
+		printf("\nQueue Family Number # %u\n", i);
 		printf("VK_QUEUE_GRAPHICS_BIT:       %d\n", (pQueueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0);
 		printf("VK_QUEUE_COMPUTE_BIT:        %d\n", (pQueueFamilyProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT) != 0);
 		printf("VK_QUEUE_TRANSFER_BIT:       %d\n", (pQueueFamilyProperties[i].queueFlags & VK_QUEUE_TRANSFER_BIT) != 0);
@@ -73,16 +76,21 @@ void printStats(VkPhysicalDevice device)
 int main(int argc, char *argv[])
 {
 	VkApplicationInfo appInfo;
-	VkInstanceCreateInfo instanceInfo;
-	VkInstance instance;
+	uint32_t layersCount;
+	VkLayerProperties *pLayers;
+	const char *ppValidationLayer[1];
+	uint32_t extensionsCount;
+	VkExtensionProperties *pExtensions;
+	VkInstanceCreateInfo instanceInfo;	
 	VkResult result;
 	uint32_t physicalDeviceCount;
-	VkPhysicalDevice *pPhysicalDevice;
+	VkPhysicalDevice *pPhysicalDevices;
 	VkDeviceQueueCreateInfo deviceQueueCreateInfo;
 	VkDeviceCreateInfo deviceCreateInfo;
 	VkPhysicalDeviceFeatures usedFeatures;
-	VkDevice device;
-
+	float queuePrios[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	VkQueue queue;
+	
 	printf("=======================\n");
 	printf("***** %s *****\n", appName);
 	printf("=======================\n\n");
@@ -109,12 +117,36 @@ int main(int argc, char *argv[])
 	appInfo.engineVersion = VK_MAKE_VERSION(0, 0, 0);
 	appInfo.apiVersion = 0;
 
+	vkEnumerateInstanceLayerProperties(&layersCount, NULL);
+	printf("Anzahl Layers: %u\n", layersCount);
+	pLayers = malloc(sizeof(VkLayerProperties) * layersCount);
+	vkEnumerateInstanceLayerProperties(&layersCount, pLayers);
+	for (uint32_t i = 0; i < layersCount; i++)
+	{
+		printf("\nlayerName:             %s\n", pLayers[i].layerName);
+		printf("specVersion:           %u\n", pLayers[i].specVersion);
+		printf("implementationVersion: %u\n", pLayers[i].implementationVersion);
+		printf("description:           %s\n", pLayers[i].description);
+	}
+	ppValidationLayer[0] = pLayers[12].layerName;
+	printf("\nvalidationLayer: %s\n", ppValidationLayer[0]);
+
+	vkEnumerateInstanceExtensionProperties(NULL, &extensionsCount, NULL);
+	printf("\nAnzahl Extensions: %u\n", extensionsCount);
+	pExtensions = malloc(sizeof(VkExtensionProperties) * extensionsCount);
+	vkEnumerateInstanceExtensionProperties(NULL, &extensionsCount, pExtensions);
+	for (uint32_t i = 0; i < extensionsCount; i++)
+	{
+		printf("\nExtension Name: %s\n", pExtensions[i].extensionName);
+		printf("SpecVersion:    %u\n", pExtensions[i].specVersion);
+	}
+
 	instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	instanceInfo.pNext = NULL;
 	instanceInfo.flags = 0;
 	instanceInfo.pApplicationInfo = &appInfo;
-	instanceInfo.enabledLayerCount = 0;
-	instanceInfo.ppEnabledLayerNames = NULL;
+	instanceInfo.enabledLayerCount = 1;
+	instanceInfo.ppEnabledLayerNames = ppValidationLayer;
 	instanceInfo.enabledExtensionCount = 0;
 	instanceInfo.ppEnabledExtensionNames = NULL;
 
@@ -125,19 +157,19 @@ int main(int argc, char *argv[])
 	assert(result, "vkEnumeratePhysicalDevices failed!");
 	printf("Anzahl physiaklische Grafikkarten: %u\n\n", physicalDeviceCount);
 
-	pPhysicalDevice = malloc(sizeof(VkPhysicalDevice) * physicalDeviceCount);
-	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, pPhysicalDevice);
+	pPhysicalDevices = malloc(sizeof(VkPhysicalDevice) * physicalDeviceCount);
+	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, pPhysicalDevices);
 	assert(result, "vkEnumeratePhysicalDevices failed!");
 
 	for (uint32_t i=0; i<physicalDeviceCount; i++)
-		printStats(pPhysicalDevice[i]);
+		printStats(pPhysicalDevices[i]);
 
 	deviceQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 	deviceQueueCreateInfo.pNext = NULL;
 	deviceQueueCreateInfo.flags = 0;
 	deviceQueueCreateInfo.queueFamilyIndex = 0;
-	deviceQueueCreateInfo.queueCount = 4;
-	deviceQueueCreateInfo.pQueuePriorities = NULL;
+	deviceQueueCreateInfo.queueCount = 1;
+	deviceQueueCreateInfo.pQueuePriorities = queuePrios;
 
 	memset(&usedFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
 
@@ -152,8 +184,18 @@ int main(int argc, char *argv[])
 	deviceCreateInfo.ppEnabledExtensionNames = NULL;
 	deviceCreateInfo.pEnabledFeatures = &usedFeatures;
 
-	result = vkCreateDevice(pPhysicalDevice[0], &deviceCreateInfo, NULL, &device);
+	result = vkCreateDevice(pPhysicalDevices[0], &deviceCreateInfo, NULL, &device);
 	assert(result, "vkCreateDevice failed!");
+
+	vkGetDeviceQueue(device, 0, 0, &queue);
+
+	vkDeviceWaitIdle(device);
+	vkDestroyDevice(device, NULL);
+	vkDestroyInstance(instance, NULL);
+
+	free(pLayers);
+	free(pExtensions);
+	free(pPhysicalDevices);
 
 	return 0;
 }
