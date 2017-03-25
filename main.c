@@ -15,7 +15,13 @@
 VkInstance instance;
 VkSurfaceKHR surface;
 VkDevice device;
+VkSwapchainKHR swapchain;
+uint32_t imagesInSwapChainCount;
+VkImageView *pImageViews;
 GLFWwindow *pWindow;
+
+const uint32_t wndWidth = 600;
+const uint32_t wndHeight = 600;
 
 static const char appName[] = "MyVulkanApp";
 static const char engineName[] = "MyVulkanEngine";
@@ -38,6 +44,11 @@ void printStats(VkPhysicalDevice device)
 	uint32_t queueFamilyCount;
 	VkQueueFamilyProperties *pQueueFamilyProperties;
 	uint32_t width, height, depth;
+	VkSurfaceCapabilitiesKHR surfaceCapabilities;
+	uint32_t formatsCount;
+	VkSurfaceFormatKHR *pSurfaceFormat;
+	uint32_t presentationModeCount;
+	VkPresentModeKHR *pPresentModes;
 	
 	vkGetPhysicalDeviceProperties(device, &properties);
 	vkGetPhysicalDeviceFeatures(device, &features);
@@ -45,6 +56,7 @@ void printStats(VkPhysicalDevice device)
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, NULL);
 	pQueueFamilyProperties = malloc(sizeof(VkQueueFamilyProperties) * queueFamilyCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, pQueueFamilyProperties);
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &surfaceCapabilities);
 
 	printf("ApiVersion:              %u.%u.%u\n", VK_VERSION_MAJOR(properties.apiVersion), VK_VERSION_MINOR(properties.apiVersion), VK_VERSION_PATCH(properties.apiVersion));
 	printf("DriverVersion:           %u\n", properties.driverVersion);
@@ -75,7 +87,40 @@ void printStats(VkPhysicalDevice device)
 	}
 	printf("\n");
 
+	printf("Surface Capabilities\n");
+	printf("\tminImageCount:           %u\n", surfaceCapabilities.minImageCount);
+	printf("\tmaxImageCount:           %u\n", surfaceCapabilities.maxImageCount);
+	printf("\tcurrentExtent:           %u/%u\n", surfaceCapabilities.currentExtent.width, surfaceCapabilities.currentExtent.height);
+	printf("\tminImageExtent:          %u/%u\n", surfaceCapabilities.minImageExtent.width, surfaceCapabilities.minImageExtent.height);
+	printf("\tmaxImageExtent:          %u/%u\n", surfaceCapabilities.maxImageExtent.width, surfaceCapabilities.maxImageExtent.height);
+	printf("\tmaxImageArrayLayers:     %u\n", surfaceCapabilities.maxImageArrayLayers);
+	printf("\tsupportedTransforms:     %u\n", surfaceCapabilities.supportedTransforms);
+	printf("\tcurrentTransform:        %u\n", surfaceCapabilities.currentTransform);
+	printf("\tsupportedCompositeAlpha: %u\n", surfaceCapabilities.supportedCompositeAlpha);
+	printf("\tsupportedUsageFlags:     %u\n", surfaceCapabilities.supportedUsageFlags);
+
+	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatsCount, NULL);
+	printf("\nAnzahl Formate: %u\n", formatsCount);
+	pSurfaceFormat = malloc(sizeof(VkSurfaceFormatKHR) * formatsCount);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatsCount, pSurfaceFormat);
+	for (uint32_t i = 0; i < formatsCount; i++)
+	{
+		printf("Format:    %u\n", pSurfaceFormat[i].format);
+		printf("ColorSpace: %u\n", pSurfaceFormat[i].colorSpace);
+	}
+
+	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentationModeCount, NULL);
+	printf("\nAnzahl Presentation Modes: %u\n", presentationModeCount);
+	pPresentModes = malloc(sizeof(VkPresentModeKHR) * presentationModeCount);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentationModeCount, pPresentModes);
+	for (uint32_t i = 0; i < presentationModeCount; i++)
+	{
+		printf("\tSupported presentation mode: %u\n", pPresentModes[i]);
+	}
+
 	free(pQueueFamilyProperties);
+	free(pSurfaceFormat);
+	free(pPresentModes);
 }
 
 void startGLFW()
@@ -83,10 +128,10 @@ void startGLFW()
 	if (!glfwInit()) exit(-1);
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-	pWindow = glfwCreateWindow(600, 600, appName, NULL, NULL);
+	pWindow = glfwCreateWindow(wndWidth, wndHeight, appName, NULL, NULL);
 }
 
-void initVulkan()
+void setupVulkan()
 {
 	VkApplicationInfo appInfo;
 	uint32_t layersCount;
@@ -104,10 +149,16 @@ void initVulkan()
 	uint32_t physicalDeviceCount;
 	VkPhysicalDevice *pPhysicalDevices;
 	VkDeviceQueueCreateInfo deviceQueueCreateInfo;
+	const char *ppDeviceExtensions[1];
 	VkDeviceCreateInfo deviceCreateInfo;
 	VkPhysicalDeviceFeatures usedFeatures;
 	float queuePrios[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	VkQueue queue;
+	VkBool32 surfaceSupport;
+	VkSwapchainCreateInfoKHR swapchainCreateInfo;
+	VkExtent2D imageExtend = { wndWidth, wndHeight };	
+	VkImage *pSwapchainImages;
+	VkImageViewCreateInfo imageViewCreateInfo;
 
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pNext = NULL;
@@ -166,14 +217,14 @@ void initVulkan()
 	result = glfwCreateWindowSurface(instance, pWindow, NULL, &surface);
 	assert(result, "glfwCreateWindowSurface failed!");
 	/* --> GLFW erledigt das
-	surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-	surfaceCreateInfo.pNext = NULL;
-	surfaceCreateInfo.flags = 0;
-	surfaceCreateInfo.hinstance = NULL;
-	surfaceCreateInfo.hwnd = NULL;
+		surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+		surfaceCreateInfo.pNext = NULL;
+		surfaceCreateInfo.flags = 0;
+		surfaceCreateInfo.hinstance = NULL;
+		surfaceCreateInfo.hwnd = NULL;
 
-	result = vkCreateWin32SurfaceKHR(instance, &surfaceCreateInfo, NULL, &surface);
-	assert(result, "vkCreateWin32SurfaceKHR failed!");
+		result = vkCreateWin32SurfaceKHR(instance, &surfaceCreateInfo, NULL, &surface);
+		assert(result, "vkCreateWin32SurfaceKHR failed!");
 	*/
 
 	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, NULL);
@@ -194,6 +245,7 @@ void initVulkan()
 	deviceQueueCreateInfo.queueCount = 1;
 	deviceQueueCreateInfo.pQueuePriorities = queuePrios;
 
+	ppDeviceExtensions[0] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 	memset(&usedFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
 
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -203,8 +255,8 @@ void initVulkan()
 	deviceCreateInfo.pQueueCreateInfos = &deviceQueueCreateInfo;
 	deviceCreateInfo.enabledLayerCount = 0;
 	deviceCreateInfo.ppEnabledLayerNames = NULL;
-	deviceCreateInfo.enabledExtensionCount = 0;
-	deviceCreateInfo.ppEnabledExtensionNames = NULL;
+	deviceCreateInfo.enabledExtensionCount = 1;
+	deviceCreateInfo.ppEnabledExtensionNames = ppDeviceExtensions;
 	deviceCreateInfo.pEnabledFeatures = &usedFeatures;
 
 	result = vkCreateDevice(pPhysicalDevices[0], &deviceCreateInfo, NULL, &device);
@@ -212,6 +264,67 @@ void initVulkan()
 
 	vkGetDeviceQueue(device, 0, 0, &queue);
 
+	result = vkGetPhysicalDeviceSurfaceSupportKHR(pPhysicalDevices[0], 0, surface, &surfaceSupport);
+	assert(result, "vkGetPhysicalDeviceSurfaceSupportKHR failed!");
+	if (!surfaceSupport)
+	{
+		printf("Error: Surface not Supported!\n");
+		__debugbreak();
+		exit(-1);
+	}
+
+	swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	swapchainCreateInfo.pNext = NULL;
+	swapchainCreateInfo.flags = 0;
+	swapchainCreateInfo.surface = surface;
+	swapchainCreateInfo.minImageCount = 3; // ToDo: check if valid (civ)
+	swapchainCreateInfo.imageFormat = VK_FORMAT_B8G8R8A8_UNORM; // ToDo: check if valid (civ)
+	swapchainCreateInfo.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR; // ToDo: check if valid (civ)
+	swapchainCreateInfo.imageExtent = imageExtend;
+	swapchainCreateInfo.imageArrayLayers = 1;
+	swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE; // ToDo: check if valid (civ)
+	swapchainCreateInfo.queueFamilyIndexCount = 0;
+	swapchainCreateInfo.pQueueFamilyIndices = NULL;
+	swapchainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	swapchainCreateInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR; // ToDo: check if valid (civ)
+	swapchainCreateInfo.clipped = VK_TRUE;
+	swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
+
+	result = vkCreateSwapchainKHR(device, &swapchainCreateInfo, NULL, &swapchain);
+	assert(result, "vkCreateSwapchainKHR failed!\n");
+
+	vkGetSwapchainImagesKHR(device, swapchain, &imagesInSwapChainCount, NULL);
+	printf("Anzahl Images in Swapchain: %u\n", imagesInSwapChainCount);
+	pSwapchainImages = malloc(sizeof(VkImage) * imagesInSwapChainCount);
+	result = vkGetSwapchainImagesKHR(device, swapchain, &imagesInSwapChainCount, pSwapchainImages);
+	assert(result, "vkGetSwapchainImagesKHR failed!\n");
+
+	pImageViews = malloc(sizeof(VkImageView) * imagesInSwapChainCount);
+	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
+	{
+		imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		imageViewCreateInfo.pNext = NULL;
+		imageViewCreateInfo.flags = 0;
+		imageViewCreateInfo.image = pSwapchainImages[i];
+		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		imageViewCreateInfo.format = VK_FORMAT_B8G8R8A8_UNORM; // ToDo: check if valid (civ);
+		imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+		imageViewCreateInfo.subresourceRange.levelCount = 1;
+		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+		imageViewCreateInfo.subresourceRange.layerCount = 1;
+
+		result = vkCreateImageView(device, &imageViewCreateInfo, NULL, &pImageViews[i]);
+		assert(result, "vkCreateImageView failed!\n");
+	}
+
+	free(pSwapchainImages);
 	free(pLayers);
 	free(pExtensions);
 	free(pPhysicalDevices);
@@ -228,6 +341,13 @@ void mainLoop()
 void shutdownVulkan()
 {
 	vkDeviceWaitIdle(device);
+
+	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
+	{
+		vkDestroyImageView(device, pImageViews[i], NULL);
+	}
+	free(pImageViews);
+	vkDestroySwapchainKHR(device, swapchain, NULL);
 	vkDestroyDevice(device, NULL);
 	vkDestroySurfaceKHR(instance, surface, NULL);
 	vkDestroyInstance(instance, NULL);
@@ -259,7 +379,7 @@ int main(int argc, char *argv[])
 	}
 
 	startGLFW();
-	initVulkan();
+	setupVulkan();
 	mainLoop();
 	shutdownVulkan();
 	shutdownGLFW();
