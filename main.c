@@ -7,10 +7,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <vulkan\vulkan.h>
+//#define VK_USE_PLATFORM_WIN32_KHR --> GLFW erledigt das
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW\glfw3.h>
+//#include <vulkan\vulkan.h> --> wird durch GLFW includiert
 
 VkInstance instance;
+VkSurfaceKHR surface;
 VkDevice device;
+GLFWwindow *pWindow;
 
 static const char appName[] = "MyVulkanApp";
 static const char engineName[] = "MyVulkanEngine";
@@ -73,7 +78,15 @@ void printStats(VkPhysicalDevice device)
 	free(pQueueFamilyProperties);
 }
 
-int main(int argc, char *argv[])
+void startGLFW()
+{
+	if (!glfwInit()) exit(-1);
+	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	pWindow = glfwCreateWindow(600, 600, appName, NULL, NULL);
+}
+
+void initVulkan()
 {
 	VkApplicationInfo appInfo;
 	uint32_t layersCount;
@@ -81,8 +94,13 @@ int main(int argc, char *argv[])
 	const char *ppValidationLayer[1];
 	uint32_t extensionsCount;
 	VkExtensionProperties *pExtensions;
-	VkInstanceCreateInfo instanceInfo;	
+	//const char *ppUsedExtensions[2]; --> GLFW erledigt das
+	const char **glfwExtensions;
+	uint32_t glfwExtensionsCount;
+	VkInstanceCreateInfo instanceInfo;
 	VkResult result;
+	//VkWin32SurfaceCreateInfoKHR surfaceCreateInfo; --> GLFW erledigt das
+	//VkSurfaceKHR surface; --> GLFW erledigt das
 	uint32_t physicalDeviceCount;
 	VkPhysicalDevice *pPhysicalDevices;
 	VkDeviceQueueCreateInfo deviceQueueCreateInfo;
@@ -90,24 +108,6 @@ int main(int argc, char *argv[])
 	VkPhysicalDeviceFeatures usedFeatures;
 	float queuePrios[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	VkQueue queue;
-	
-	printf("=======================\n");
-	printf("***** %s *****\n", appName);
-	printf("=======================\n\n");
-
-	if (argc > 1)
-	{
-		if (!strcmp(argv[1], "version"))
-		{
-			printf("Version: 0.0.0\n");
-			exit(0);
-		}
-		else
-		{
-			printf("%s unbekanntes Argument!\n", argv[1]);
-			exit(-1);
-		}
-	}
 
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pNext = NULL;
@@ -141,17 +141,40 @@ int main(int argc, char *argv[])
 		printf("SpecVersion:    %u\n", pExtensions[i].specVersion);
 	}
 
+	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionsCount);
+	/* --> GLFW erledigt das
+		ppUsedExtensions[0] = "VK_KHR_surface"; --> GLFW erledigt das
+		ppUsedExtensions[1] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME; --> GLFW erledigt das
+	*/
+
 	instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	instanceInfo.pNext = NULL;
 	instanceInfo.flags = 0;
 	instanceInfo.pApplicationInfo = &appInfo;
 	instanceInfo.enabledLayerCount = 1;
 	instanceInfo.ppEnabledLayerNames = ppValidationLayer;
-	instanceInfo.enabledExtensionCount = 0;
-	instanceInfo.ppEnabledExtensionNames = NULL;
+	instanceInfo.enabledExtensionCount = glfwExtensionsCount;
+	instanceInfo.ppEnabledExtensionNames = glfwExtensions;
+	/* --> GLFW erledigt das
+		instanceInfo.enabledExtensionCount = 2;
+		instanceInfo.ppEnabledExtensionNames = ppUsedExtensions;
+	*/
 
 	result = vkCreateInstance(&instanceInfo, NULL, &instance);
 	assert(result, "vkCreateInstance failed!");
+
+	result = glfwCreateWindowSurface(instance, pWindow, NULL, &surface);
+	assert(result, "glfwCreateWindowSurface failed!");
+	/* --> GLFW erledigt das
+	surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	surfaceCreateInfo.pNext = NULL;
+	surfaceCreateInfo.flags = 0;
+	surfaceCreateInfo.hinstance = NULL;
+	surfaceCreateInfo.hwnd = NULL;
+
+	result = vkCreateWin32SurfaceKHR(instance, &surfaceCreateInfo, NULL, &surface);
+	assert(result, "vkCreateWin32SurfaceKHR failed!");
+	*/
 
 	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, NULL);
 	assert(result, "vkEnumeratePhysicalDevices failed!");
@@ -161,7 +184,7 @@ int main(int argc, char *argv[])
 	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, pPhysicalDevices);
 	assert(result, "vkEnumeratePhysicalDevices failed!");
 
-	for (uint32_t i=0; i<physicalDeviceCount; i++)
+	for (uint32_t i = 0; i<physicalDeviceCount; i++)
 		printStats(pPhysicalDevices[i]);
 
 	deviceQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -189,13 +212,57 @@ int main(int argc, char *argv[])
 
 	vkGetDeviceQueue(device, 0, 0, &queue);
 
-	vkDeviceWaitIdle(device);
-	vkDestroyDevice(device, NULL);
-	vkDestroyInstance(instance, NULL);
-
 	free(pLayers);
 	free(pExtensions);
 	free(pPhysicalDevices);
+}
+
+void mainLoop()
+{
+	while (!glfwWindowShouldClose(pWindow))
+	{
+		glfwPollEvents();
+	}
+}
+
+void shutdownVulkan()
+{
+	vkDeviceWaitIdle(device);
+	vkDestroyDevice(device, NULL);
+	vkDestroySurfaceKHR(instance, surface, NULL);
+	vkDestroyInstance(instance, NULL);
+}
+
+void shutdownGLFW()
+{
+	glfwDestroyWindow(pWindow);
+}
+
+int main(int argc, char *argv[])
+{
+	printf("=======================\n");
+	printf("***** %s *****\n", appName);
+	printf("=======================\n\n");
+
+	if (argc > 1)
+	{
+		if (!strcmp(argv[1], "version"))
+		{
+			printf("Version: 0.0.0\n");
+			exit(0);
+		}
+		else
+		{
+			printf("%s unbekanntes Argument!\n", argv[1]);
+			exit(-1);
+		}
+	}
+
+	startGLFW();
+	initVulkan();
+	mainLoop();
+	shutdownVulkan();
+	shutdownGLFW();
 
 	return 0;
 }
