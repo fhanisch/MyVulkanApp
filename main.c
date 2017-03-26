@@ -18,6 +18,7 @@ VkDevice device;
 VkSwapchainKHR swapchain;
 uint32_t imagesInSwapChainCount;
 VkImageView *pImageViews;
+VkShaderModule vertexShaderModule, fragmentShaderModule;
 GLFWwindow *pWindow;
 
 const uint32_t wndWidth = 600;
@@ -36,7 +37,7 @@ void assert(VkResult result, char *msg)
 	}
 }
 
-void printStats(VkPhysicalDevice device)
+void printStats(VkPhysicalDevice physDevice)
 {
 	VkPhysicalDeviceProperties properties;
 	VkPhysicalDeviceFeatures features;
@@ -50,13 +51,13 @@ void printStats(VkPhysicalDevice device)
 	uint32_t presentationModeCount;
 	VkPresentModeKHR *pPresentModes;
 	
-	vkGetPhysicalDeviceProperties(device, &properties);
-	vkGetPhysicalDeviceFeatures(device, &features);
-	vkGetPhysicalDeviceMemoryProperties(device, &memProp);
-	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, NULL);
+	vkGetPhysicalDeviceProperties(physDevice, &properties);
+	vkGetPhysicalDeviceFeatures(physDevice, &features);
+	vkGetPhysicalDeviceMemoryProperties(physDevice, &memProp);
+	vkGetPhysicalDeviceQueueFamilyProperties(physDevice, &queueFamilyCount, NULL);
 	pQueueFamilyProperties = malloc(sizeof(VkQueueFamilyProperties) * queueFamilyCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, pQueueFamilyProperties);
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &surfaceCapabilities);
+	vkGetPhysicalDeviceQueueFamilyProperties(physDevice, &queueFamilyCount, pQueueFamilyProperties);
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physDevice, surface, &surfaceCapabilities);
 
 	printf("ApiVersion:              %u.%u.%u\n", VK_VERSION_MAJOR(properties.apiVersion), VK_VERSION_MINOR(properties.apiVersion), VK_VERSION_PATCH(properties.apiVersion));
 	printf("DriverVersion:           %u\n", properties.driverVersion);
@@ -99,20 +100,20 @@ void printStats(VkPhysicalDevice device)
 	printf("\tsupportedCompositeAlpha: %u\n", surfaceCapabilities.supportedCompositeAlpha);
 	printf("\tsupportedUsageFlags:     %u\n", surfaceCapabilities.supportedUsageFlags);
 
-	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatsCount, NULL);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(physDevice, surface, &formatsCount, NULL);
 	printf("\nAnzahl Formate: %u\n", formatsCount);
 	pSurfaceFormat = malloc(sizeof(VkSurfaceFormatKHR) * formatsCount);
-	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatsCount, pSurfaceFormat);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(physDevice, surface, &formatsCount, pSurfaceFormat);
 	for (uint32_t i = 0; i < formatsCount; i++)
 	{
 		printf("Format:    %u\n", pSurfaceFormat[i].format);
 		printf("ColorSpace: %u\n", pSurfaceFormat[i].colorSpace);
 	}
 
-	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentationModeCount, NULL);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(physDevice, surface, &presentationModeCount, NULL);
 	printf("\nAnzahl Presentation Modes: %u\n", presentationModeCount);
 	pPresentModes = malloc(sizeof(VkPresentModeKHR) * presentationModeCount);
-	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentationModeCount, pPresentModes);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(physDevice, surface, &presentationModeCount, pPresentModes);
 	for (uint32_t i = 0; i < presentationModeCount; i++)
 	{
 		printf("\tSupported presentation mode: %u\n", pPresentModes[i]);
@@ -131,8 +132,25 @@ void startGLFW()
 	pWindow = glfwCreateWindow(wndWidth, wndHeight, appName, NULL, NULL);
 }
 
-void setupVulkan()
+int loadShader(char **shaderStr, char *fileName)
 {
+	unsigned int filesize;
+	FILE *file = fopen(fileName, "r");
+
+	fseek(file, 0, SEEK_END);
+	filesize = ftell(file);	
+	rewind(file);
+	*shaderStr = (char*)malloc(filesize);	
+	fread(*shaderStr, 1, filesize, file);
+	printf("\n%s geladen. Filesize: %d\n", fileName, filesize);
+	fclose(file);
+
+	return filesize;
+}
+
+void createInstance()
+{
+	VkResult result;
 	VkApplicationInfo appInfo;
 	uint32_t layersCount;
 	VkLayerProperties *pLayers;
@@ -142,23 +160,9 @@ void setupVulkan()
 	//const char *ppUsedExtensions[2]; --> GLFW erledigt das
 	const char **glfwExtensions;
 	uint32_t glfwExtensionsCount;
-	VkInstanceCreateInfo instanceInfo;
-	VkResult result;
+	VkInstanceCreateInfo instanceInfo;	
 	//VkWin32SurfaceCreateInfoKHR surfaceCreateInfo; --> GLFW erledigt das
 	//VkSurfaceKHR surface; --> GLFW erledigt das
-	uint32_t physicalDeviceCount;
-	VkPhysicalDevice *pPhysicalDevices;
-	VkDeviceQueueCreateInfo deviceQueueCreateInfo;
-	const char *ppDeviceExtensions[1];
-	VkDeviceCreateInfo deviceCreateInfo;
-	VkPhysicalDeviceFeatures usedFeatures;
-	float queuePrios[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	VkQueue queue;
-	VkBool32 surfaceSupport;
-	VkSwapchainCreateInfoKHR swapchainCreateInfo;
-	VkExtent2D imageExtend = { wndWidth, wndHeight };	
-	VkImage *pSwapchainImages;
-	VkImageViewCreateInfo imageViewCreateInfo;
 
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pNext = NULL;
@@ -194,8 +198,8 @@ void setupVulkan()
 
 	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionsCount);
 	/* --> GLFW erledigt das
-		ppUsedExtensions[0] = "VK_KHR_surface"; --> GLFW erledigt das
-		ppUsedExtensions[1] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME; --> GLFW erledigt das
+	ppUsedExtensions[0] = "VK_KHR_surface"; --> GLFW erledigt das
+	ppUsedExtensions[1] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME; --> GLFW erledigt das
 	*/
 
 	instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -207,8 +211,8 @@ void setupVulkan()
 	instanceInfo.enabledExtensionCount = glfwExtensionsCount;
 	instanceInfo.ppEnabledExtensionNames = glfwExtensions;
 	/* --> GLFW erledigt das
-		instanceInfo.enabledExtensionCount = 2;
-		instanceInfo.ppEnabledExtensionNames = ppUsedExtensions;
+	instanceInfo.enabledExtensionCount = 2;
+	instanceInfo.ppEnabledExtensionNames = ppUsedExtensions;
 	*/
 
 	result = vkCreateInstance(&instanceInfo, NULL, &instance);
@@ -217,15 +221,59 @@ void setupVulkan()
 	result = glfwCreateWindowSurface(instance, pWindow, NULL, &surface);
 	assert(result, "glfwCreateWindowSurface failed!");
 	/* --> GLFW erledigt das
-		surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-		surfaceCreateInfo.pNext = NULL;
-		surfaceCreateInfo.flags = 0;
-		surfaceCreateInfo.hinstance = NULL;
-		surfaceCreateInfo.hwnd = NULL;
+	surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	surfaceCreateInfo.pNext = NULL;
+	surfaceCreateInfo.flags = 0;
+	surfaceCreateInfo.hinstance = NULL;
+	surfaceCreateInfo.hwnd = NULL;
 
-		result = vkCreateWin32SurfaceKHR(instance, &surfaceCreateInfo, NULL, &surface);
-		assert(result, "vkCreateWin32SurfaceKHR failed!");
+	result = vkCreateWin32SurfaceKHR(instance, &surfaceCreateInfo, NULL, &surface);
+	assert(result, "vkCreateWin32SurfaceKHR failed!");
 	*/
+
+	free(pLayers);
+	free(pExtensions);
+}
+
+void createShaderModule(char *filename, VkShaderModule *shaderModule)
+{
+	VkResult result;
+	char *shaderCode;
+	int filesize;
+	VkShaderModuleCreateInfo shaderCreateInfo;
+
+	filesize = loadShader(&shaderCode, filename);
+	shaderCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	shaderCreateInfo.pNext = NULL;
+	shaderCreateInfo.flags = 0;
+	shaderCreateInfo.codeSize = filesize;
+	shaderCreateInfo.pCode = (uint32_t*)shaderCode;
+
+	result = vkCreateShaderModule(device, &shaderCreateInfo, NULL, shaderModule);
+	assert(result, "vkCreateShaderModule failed!\n");
+}
+
+void setupVulkan()
+{	
+	VkResult result;
+	uint32_t physicalDeviceCount;
+	VkPhysicalDevice *pPhysicalDevices;
+	VkDeviceQueueCreateInfo deviceQueueCreateInfo;
+	const char *ppDeviceExtensions[1];
+	VkDeviceCreateInfo deviceCreateInfo;
+	VkPhysicalDeviceFeatures usedFeatures;
+	float queuePrios[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	VkQueue queue;
+	VkBool32 surfaceSupport;
+	VkSwapchainCreateInfoKHR swapchainCreateInfo;
+	VkExtent2D imageExtend = { wndWidth, wndHeight };	
+	VkImage *pSwapchainImages;
+	VkImageViewCreateInfo imageViewCreateInfo;	
+	VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert, shaderStageCreateInfoFrag;
+	VkPipelineShaderStageCreateInfo shaderStages[2];
+	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo;
+		
+	createInstance();
 
 	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, NULL);
 	assert(result, "vkEnumeratePhysicalDevices failed!");
@@ -324,9 +372,37 @@ void setupVulkan()
 		assert(result, "vkCreateImageView failed!\n");
 	}
 
-	free(pSwapchainImages);
-	free(pLayers);
-	free(pExtensions);
+	createShaderModule("vert.spv", &vertexShaderModule);
+	createShaderModule("frag.spv", &fragmentShaderModule);
+
+	shaderStageCreateInfoVert.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shaderStageCreateInfoVert.pNext = NULL;
+	shaderStageCreateInfoVert.flags = 0;
+	shaderStageCreateInfoVert.stage = VK_SHADER_STAGE_VERTEX_BIT;
+	shaderStageCreateInfoVert.module = vertexShaderModule;
+	shaderStageCreateInfoVert.pName = "main";
+	shaderStageCreateInfoVert.pSpecializationInfo = NULL;
+
+	shaderStageCreateInfoFrag.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shaderStageCreateInfoFrag.pNext = NULL;
+	shaderStageCreateInfoFrag.flags = 0;
+	shaderStageCreateInfoFrag.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	shaderStageCreateInfoFrag.module = fragmentShaderModule;
+	shaderStageCreateInfoFrag.pName = "main";
+	shaderStageCreateInfoFrag.pSpecializationInfo = NULL;
+
+	shaderStages[0] = shaderStageCreateInfoVert;
+	shaderStages[1] = shaderStageCreateInfoFrag;
+
+	vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertexInputCreateInfo.pNext = NULL;
+	vertexInputCreateInfo.flags = 0;
+	vertexInputCreateInfo.vertexBindingDescriptionCount = 0;
+	vertexInputCreateInfo.pVertexBindingDescriptions = NULL;
+	vertexInputCreateInfo.vertexAttributeDescriptionCount = 0;
+	vertexInputCreateInfo.pVertexAttributeDescriptions = NULL;
+
+	free(pSwapchainImages);	
 	free(pPhysicalDevices);
 }
 
@@ -347,6 +423,8 @@ void shutdownVulkan()
 		vkDestroyImageView(device, pImageViews[i], NULL);
 	}
 	free(pImageViews);
+	vkDestroyShaderModule(device, vertexShaderModule, NULL);
+	vkDestroyShaderModule(device, fragmentShaderModule, NULL);
 	vkDestroySwapchainKHR(device, swapchain, NULL);
 	vkDestroyDevice(device, NULL);
 	vkDestroySurfaceKHR(instance, surface, NULL);
