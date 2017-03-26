@@ -24,6 +24,7 @@ GLFWwindow *pWindow;
 
 const uint32_t wndWidth = 600;
 const uint32_t wndHeight = 600;
+const VkFormat ourFormat = VK_FORMAT_B8G8R8A8_UNORM;
 
 static const char appName[] = "MyVulkanApp";
 static const char engineName[] = "MyVulkanEngine";
@@ -282,7 +283,9 @@ void setupVulkan()
 	VkPipelineColorBlendAttachmentState colorBlendAttachment;
 	VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo;
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo;
-		
+	VkAttachmentDescription attachmentDescription;
+	VkAttachmentReference attachmentReference;
+
 	createInstance();
 
 	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, NULL);
@@ -336,7 +339,7 @@ void setupVulkan()
 	swapchainCreateInfo.flags = 0;
 	swapchainCreateInfo.surface = surface;
 	swapchainCreateInfo.minImageCount = 3; // ToDo: check if valid (civ)
-	swapchainCreateInfo.imageFormat = VK_FORMAT_B8G8R8A8_UNORM; // ToDo: check if valid (civ)
+	swapchainCreateInfo.imageFormat = ourFormat; // ToDo: check if valid (civ)
 	swapchainCreateInfo.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR; // ToDo: check if valid (civ)
 	swapchainCreateInfo.imageExtent = imageExtend;
 	swapchainCreateInfo.imageArrayLayers = 1;
@@ -367,7 +370,7 @@ void setupVulkan()
 		imageViewCreateInfo.flags = 0;
 		imageViewCreateInfo.image = pSwapchainImages[i];
 		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		imageViewCreateInfo.format = VK_FORMAT_B8G8R8A8_UNORM; // ToDo: check if valid (civ);
+		imageViewCreateInfo.format = ourFormat; // ToDo: check if valid (civ);
 		imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 		imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 		imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -494,6 +497,19 @@ void setupVulkan()
 
 	result = vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, NULL, &pipelineLayout);
 	assert(result, "vkCreatePipelineLayout failed!\n");
+
+	attachmentDescription.flags = 0;
+	attachmentDescription.format = ourFormat;
+	attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+	attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	attachmentReference.attachment = 0;
+	attachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	free(pSwapchainImages);	
 	free(pPhysicalDevices);
