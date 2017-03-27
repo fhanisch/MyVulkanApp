@@ -285,6 +285,7 @@ void setupVulkan()
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo;
 	VkAttachmentDescription attachmentDescription;
 	VkAttachmentReference attachmentReference;
+	VkSubpassDescription subpathDescription;
 
 	createInstance();
 
@@ -510,6 +511,17 @@ void setupVulkan()
 
 	attachmentReference.attachment = 0;
 	attachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	subpathDescription.flags = 0;
+	subpathDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpathDescription.inputAttachmentCount = 0;
+	subpathDescription.pInputAttachments = NULL;
+	subpathDescription.colorAttachmentCount = 1;
+	subpathDescription.pColorAttachments = &attachmentReference;
+	subpathDescription.pResolveAttachments = NULL;
+	subpathDescription.pDepthStencilAttachment = NULL;
+	subpathDescription.preserveAttachmentCount = 0;
+	subpathDescription.pPreserveAttachments = NULL;
 
 	free(pSwapchainImages);	
 	free(pPhysicalDevices);
