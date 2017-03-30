@@ -20,6 +20,7 @@ uint32_t imagesInSwapChainCount;
 VkImageView *pImageViews;
 VkShaderModule vertexShaderModule, fragmentShaderModule;
 VkPipelineLayout pipelineLayout;
+VkRenderPass renderPath;
 GLFWwindow *pWindow;
 
 const uint32_t wndWidth = 600;
@@ -286,6 +287,7 @@ void setupVulkan()
 	VkAttachmentDescription attachmentDescription;
 	VkAttachmentReference attachmentReference;
 	VkSubpassDescription subpathDescription;
+	VkRenderPassCreateInfo renderPathCreateInfo;
 
 	createInstance();
 
@@ -523,6 +525,19 @@ void setupVulkan()
 	subpathDescription.preserveAttachmentCount = 0;
 	subpathDescription.pPreserveAttachments = NULL;
 
+	renderPathCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPathCreateInfo.pNext = NULL;
+	renderPathCreateInfo.flags = 0;
+	renderPathCreateInfo.attachmentCount = 1;
+	renderPathCreateInfo.pAttachments = &attachmentDescription;
+	renderPathCreateInfo.subpassCount = 1;
+	renderPathCreateInfo.pSubpasses = &subpathDescription;
+	renderPathCreateInfo.dependencyCount = 0;
+	renderPathCreateInfo.pDependencies = NULL;
+
+	result = vkCreateRenderPass(device, &renderPathCreateInfo, NULL, &renderPath);
+	assert(result, "vkCreateRenderPass failed!\n");
+
 	free(pSwapchainImages);	
 	free(pPhysicalDevices);
 }
@@ -539,6 +554,7 @@ void shutdownVulkan()
 {
 	vkDeviceWaitIdle(device);
 
+	vkDestroyRenderPass(device, renderPath, NULL);
 	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
 	{
 		vkDestroyImageView(device, pImageViews[i], NULL);
