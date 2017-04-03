@@ -273,7 +273,15 @@ void createInstance()
 	*/
 
 	result = vkCreateInstance(&instanceInfo, NULL, &instance);
-	assert(result, "vkCreateInstance failed!");
+	assert(result, "vkCreateInstance failed!");	
+
+	free(pLayers);
+	free(pExtensions);
+}
+
+void createSurface()
+{
+	VkResult result;
 
 	result = glfwCreateWindowSurface(instance, pWindow, NULL, &surface);
 	assert(result, "glfwCreateWindowSurface failed!");
@@ -287,9 +295,136 @@ void createInstance()
 	result = vkCreateWin32SurfaceKHR(instance, &surfaceCreateInfo, NULL, &surface);
 	assert(result, "vkCreateWin32SurfaceKHR failed!");
 	*/
+}
 
-	free(pLayers);
-	free(pExtensions);
+void getPhysicalDevices()
+{
+	VkResult result;
+	uint32_t physicalDeviceCount;
+	VkBool32 surfaceSupport;
+
+	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, NULL);
+	assert(result, "vkEnumeratePhysicalDevices failed!");
+	printf("Anzahl physiaklische Grafikkarten: %u\n\n", physicalDeviceCount);
+
+	pPhysicalDevices = malloc(sizeof(VkPhysicalDevice) * physicalDeviceCount);
+	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, pPhysicalDevices);
+	assert(result, "vkEnumeratePhysicalDevices failed!");
+
+	for (uint32_t i = 0; i<physicalDeviceCount; i++)
+		printStats(pPhysicalDevices[i]);
+
+	result = vkGetPhysicalDeviceSurfaceSupportKHR(pPhysicalDevices[0], 0, surface, &surfaceSupport);
+	assert(result, "vkGetPhysicalDeviceSurfaceSupportKHR failed!");
+	if (!surfaceSupport)
+	{
+		printf("Error: Surface not Supported!\n");
+		__debugbreak();
+		exit(-1);
+	}
+}
+
+void createLogicalDevice()
+{
+	VkResult result;
+	VkDeviceQueueCreateInfo deviceQueueCreateInfo;
+	const char *ppDeviceExtensions[1];
+	VkDeviceCreateInfo deviceCreateInfo;
+	VkPhysicalDeviceFeatures usedFeatures;
+	float queuePrios[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+	deviceQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	deviceQueueCreateInfo.pNext = NULL;
+	deviceQueueCreateInfo.flags = 0;
+	deviceQueueCreateInfo.queueFamilyIndex = 0;
+	deviceQueueCreateInfo.queueCount = 1;
+	deviceQueueCreateInfo.pQueuePriorities = queuePrios;
+
+	ppDeviceExtensions[0] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+	memset(&usedFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
+
+	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	deviceCreateInfo.pNext = NULL;
+	deviceCreateInfo.flags = 0;
+	deviceCreateInfo.queueCreateInfoCount = 1;
+	deviceCreateInfo.pQueueCreateInfos = &deviceQueueCreateInfo;
+	deviceCreateInfo.enabledLayerCount = 0;
+	deviceCreateInfo.ppEnabledLayerNames = NULL;
+	deviceCreateInfo.enabledExtensionCount = 1;
+	deviceCreateInfo.ppEnabledExtensionNames = ppDeviceExtensions;
+	deviceCreateInfo.pEnabledFeatures = &usedFeatures;
+
+	result = vkCreateDevice(pPhysicalDevices[0], &deviceCreateInfo, NULL, &device);
+	assert(result, "vkCreateDevice failed!");
+
+	vkGetDeviceQueue(device, 0, 0, &queue);
+}
+
+void createSwapchain()
+{
+	VkResult result;
+	VkSwapchainCreateInfoKHR swapchainCreateInfo;
+	VkExtent2D imageExtend = { wndWidth, wndHeight };
+
+	swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	swapchainCreateInfo.pNext = NULL;
+	swapchainCreateInfo.flags = 0;
+	swapchainCreateInfo.surface = surface;
+	swapchainCreateInfo.minImageCount = 3; // ToDo: check if valid (civ)
+	swapchainCreateInfo.imageFormat = ourFormat; // ToDo: check if valid (civ)
+	swapchainCreateInfo.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR; // ToDo: check if valid (civ)
+	swapchainCreateInfo.imageExtent = imageExtend;
+	swapchainCreateInfo.imageArrayLayers = 1;
+	swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE; // ToDo: check if valid (civ)
+	swapchainCreateInfo.queueFamilyIndexCount = 0;
+	swapchainCreateInfo.pQueueFamilyIndices = NULL;
+	swapchainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	swapchainCreateInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR; // ToDo: check if valid (civ)
+	swapchainCreateInfo.clipped = VK_TRUE;
+	swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
+
+	result = vkCreateSwapchainKHR(device, &swapchainCreateInfo, NULL, &swapchain);
+	assert(result, "vkCreateSwapchainKHR failed!\n");
+}
+
+void createImageViews()
+{
+	VkResult result;
+	VkImage *pSwapchainImages;
+	VkImageViewCreateInfo imageViewCreateInfo;
+
+	vkGetSwapchainImagesKHR(device, swapchain, &imagesInSwapChainCount, NULL);
+	printf("Anzahl Images in Swapchain: %u\n", imagesInSwapChainCount);
+	pSwapchainImages = malloc(sizeof(VkImage) * imagesInSwapChainCount);
+	result = vkGetSwapchainImagesKHR(device, swapchain, &imagesInSwapChainCount, pSwapchainImages);
+	assert(result, "vkGetSwapchainImagesKHR failed!\n");
+
+	pImageViews = malloc(sizeof(VkImageView) * imagesInSwapChainCount);
+	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
+	{
+		imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		imageViewCreateInfo.pNext = NULL;
+		imageViewCreateInfo.flags = 0;
+		imageViewCreateInfo.image = pSwapchainImages[i];
+		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		imageViewCreateInfo.format = ourFormat; // ToDo: check if valid (civ);
+		imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+		imageViewCreateInfo.subresourceRange.levelCount = 1;
+		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+		imageViewCreateInfo.subresourceRange.layerCount = 1;
+
+		result = vkCreateImageView(device, &imageViewCreateInfo, NULL, &pImageViews[i]);
+		assert(result, "vkCreateImageView failed!\n");
+	}
+
+	free(pSwapchainImages);
 }
 
 void createShaderModule(char *filename, VkShaderModule *shaderModule)
@@ -312,18 +447,8 @@ void createShaderModule(char *filename, VkShaderModule *shaderModule)
 
 void setupVulkan()
 {	
-	VkResult result;
-	uint32_t physicalDeviceCount;	
-	VkDeviceQueueCreateInfo deviceQueueCreateInfo;
-	const char *ppDeviceExtensions[1];
-	VkDeviceCreateInfo deviceCreateInfo;
-	VkPhysicalDeviceFeatures usedFeatures;
-	float queuePrios[] = { 1.0f, 1.0f, 1.0f, 1.0f };	
-	VkBool32 surfaceSupport;
-	VkSwapchainCreateInfoKHR swapchainCreateInfo;
-	VkExtent2D imageExtend = { wndWidth, wndHeight };	
-	VkImage *pSwapchainImages;
-	VkImageViewCreateInfo imageViewCreateInfo;	
+	VkResult result;	
+										
 	VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert, shaderStageCreateInfoFrag;
 	VkPipelineShaderStageCreateInfo shaderStages[2];
 	VkVertexInputBindingDescription vertexInputBindingDescription;
@@ -358,104 +483,12 @@ void setupVulkan()
 	VkDeviceSize offsets[] = { 0 };
 
 	createInstance();
-
-	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, NULL);
-	assert(result, "vkEnumeratePhysicalDevices failed!");
-	printf("Anzahl physiaklische Grafikkarten: %u\n\n", physicalDeviceCount);
-
-	pPhysicalDevices = malloc(sizeof(VkPhysicalDevice) * physicalDeviceCount);
-	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, pPhysicalDevices);
-	assert(result, "vkEnumeratePhysicalDevices failed!");
-
-	for (uint32_t i = 0; i<physicalDeviceCount; i++)
-		printStats(pPhysicalDevices[i]);
-
-	deviceQueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	deviceQueueCreateInfo.pNext = NULL;
-	deviceQueueCreateInfo.flags = 0;
-	deviceQueueCreateInfo.queueFamilyIndex = 0;
-	deviceQueueCreateInfo.queueCount = 1;
-	deviceQueueCreateInfo.pQueuePriorities = queuePrios;
-
-	ppDeviceExtensions[0] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
-	memset(&usedFeatures, 0, sizeof(VkPhysicalDeviceFeatures));
-
-	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	deviceCreateInfo.pNext = NULL;
-	deviceCreateInfo.flags = 0;
-	deviceCreateInfo.queueCreateInfoCount = 1;
-	deviceCreateInfo.pQueueCreateInfos = &deviceQueueCreateInfo;
-	deviceCreateInfo.enabledLayerCount = 0;
-	deviceCreateInfo.ppEnabledLayerNames = NULL;
-	deviceCreateInfo.enabledExtensionCount = 1;
-	deviceCreateInfo.ppEnabledExtensionNames = ppDeviceExtensions;
-	deviceCreateInfo.pEnabledFeatures = &usedFeatures;
-
-	result = vkCreateDevice(pPhysicalDevices[0], &deviceCreateInfo, NULL, &device);
-	assert(result, "vkCreateDevice failed!");
-
-	vkGetDeviceQueue(device, 0, 0, &queue);
-
-	result = vkGetPhysicalDeviceSurfaceSupportKHR(pPhysicalDevices[0], 0, surface, &surfaceSupport);
-	assert(result, "vkGetPhysicalDeviceSurfaceSupportKHR failed!");
-	if (!surfaceSupport)
-	{
-		printf("Error: Surface not Supported!\n");
-		__debugbreak();
-		exit(-1);
-	}
-
-	swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	swapchainCreateInfo.pNext = NULL;
-	swapchainCreateInfo.flags = 0;
-	swapchainCreateInfo.surface = surface;
-	swapchainCreateInfo.minImageCount = 3; // ToDo: check if valid (civ)
-	swapchainCreateInfo.imageFormat = ourFormat; // ToDo: check if valid (civ)
-	swapchainCreateInfo.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR; // ToDo: check if valid (civ)
-	swapchainCreateInfo.imageExtent = imageExtend;
-	swapchainCreateInfo.imageArrayLayers = 1;
-	swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE; // ToDo: check if valid (civ)
-	swapchainCreateInfo.queueFamilyIndexCount = 0;
-	swapchainCreateInfo.pQueueFamilyIndices = NULL;
-	swapchainCreateInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-	swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	swapchainCreateInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR; // ToDo: check if valid (civ)
-	swapchainCreateInfo.clipped = VK_TRUE;
-	swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
-
-	result = vkCreateSwapchainKHR(device, &swapchainCreateInfo, NULL, &swapchain);
-	assert(result, "vkCreateSwapchainKHR failed!\n");
-
-	vkGetSwapchainImagesKHR(device, swapchain, &imagesInSwapChainCount, NULL);
-	printf("Anzahl Images in Swapchain: %u\n", imagesInSwapChainCount);
-	pSwapchainImages = malloc(sizeof(VkImage) * imagesInSwapChainCount);
-	result = vkGetSwapchainImagesKHR(device, swapchain, &imagesInSwapChainCount, pSwapchainImages);
-	assert(result, "vkGetSwapchainImagesKHR failed!\n");
-
-	pImageViews = malloc(sizeof(VkImageView) * imagesInSwapChainCount);
-	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
-	{
-		imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		imageViewCreateInfo.pNext = NULL;
-		imageViewCreateInfo.flags = 0;
-		imageViewCreateInfo.image = pSwapchainImages[i];
-		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		imageViewCreateInfo.format = ourFormat; // ToDo: check if valid (civ);
-		imageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-		imageViewCreateInfo.subresourceRange.levelCount = 1;
-		imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-		imageViewCreateInfo.subresourceRange.layerCount = 1;
-
-		result = vkCreateImageView(device, &imageViewCreateInfo, NULL, &pImageViews[i]);
-		assert(result, "vkCreateImageView failed!\n");
-	}
-
+	createSurface();
+	getPhysicalDevices();		
+	createLogicalDevice();		
+	createSwapchain();
+	createImageViews();
+	
 	createShaderModule("vert.spv", &vertexShaderModule);
 	createShaderModule("frag.spv", &fragmentShaderModule);
 
@@ -744,8 +777,7 @@ void setupVulkan()
 	assert(result, "vkCreateSemaphore failed!\n");
 	result = vkCreateSemaphore(device, &semaphoreCreateInfo, NULL, &semaphoreRenderingDone);
 	assert(result, "vkCreateSemaphore failed!\n");
-
-	free(pSwapchainImages);		
+			
 }
 
 void drawFrame()
