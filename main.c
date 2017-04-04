@@ -445,10 +445,9 @@ void createShaderModule(char *filename, VkShaderModule *shaderModule)
 	assert(result, "vkCreateShaderModule failed!\n");
 }
 
-void setupVulkan()
-{	
-	VkResult result;	
-										
+void createGraphicsPipeline()
+{
+	VkResult result;
 	VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert, shaderStageCreateInfoFrag;
 	VkPipelineShaderStageCreateInfo shaderStages[2];
 	VkVertexInputBindingDescription vertexInputBindingDescription;
@@ -469,26 +468,7 @@ void setupVulkan()
 	VkSubpassDependency subpassDependency;
 	VkRenderPassCreateInfo renderPathCreateInfo;
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo;
-	VkFramebufferCreateInfo framebufferCreateInfo;
-	VkCommandPoolCreateInfo commandPoolCreateInfo;
-	VkCommandBufferAllocateInfo commandBufferAllocateInfo;	
-	VkCommandBufferBeginInfo commandBufferBeginInfo;
-	VkRenderPassBeginInfo renderPassBeginInfo;
-	VkClearValue clearValue = { 0.0f, 0.0f, 1.0f, 1.0f };
-	VkSemaphoreCreateInfo semaphoreCreateInfo;
-	VkBufferCreateInfo bufferCreateInfo;
-	VkMemoryRequirements memoryRequirements;
-	VkMemoryAllocateInfo memoryAllocateInfo;
-	void *rawData;
-	VkDeviceSize offsets[] = { 0 };
 
-	createInstance();
-	createSurface();
-	getPhysicalDevices();		
-	createLogicalDevice();		
-	createSwapchain();
-	createImageViews();
-	
 	createShaderModule("vert.spv", &vertexShaderModule);
 	createShaderModule("frag.spv", &fragmentShaderModule);
 
@@ -672,6 +652,12 @@ void setupVulkan()
 
 	result = vkCreateGraphicsPipelines(device, NULL, 1, &pipelineCreateInfo, NULL, &pipeline);
 	assert(result, "vkCreateGraphicsPipelines failed!\n");
+}
+
+void createFramebuffer()
+{
+	VkResult result;
+	VkFramebufferCreateInfo framebufferCreateInfo;
 
 	pFramebuffer = malloc(sizeof(VkFramebuffer) * imagesInSwapChainCount);
 	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
@@ -689,18 +675,50 @@ void setupVulkan()
 		result = vkCreateFramebuffer(device, &framebufferCreateInfo, NULL, &(pFramebuffer[i]));
 		assert(result, "vkCreateFramebuffer failed!\n");
 	}
+}
+
+void createBuffer(VkBuffer *pBuffer, VkBufferUsageFlags usage)
+{
+	VkResult result;
+	VkBufferCreateInfo bufferCreateInfo;
 
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferCreateInfo.pNext = NULL;
 	bufferCreateInfo.flags = 0;
 	bufferCreateInfo.size = 2 * 3 * sizeof(float);
-	bufferCreateInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	bufferCreateInfo.usage = usage;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	bufferCreateInfo.queueFamilyIndexCount = 0;
 	bufferCreateInfo.pQueueFamilyIndices = NULL;
 
-	result = vkCreateBuffer(device, &bufferCreateInfo, NULL, &vertexBuffer);
+	result = vkCreateBuffer(device, &bufferCreateInfo, NULL, pBuffer);
 	assert(result, "vkCreateBuffer failed!\n");
+}
+
+void setupVulkan()
+{	
+	VkResult result;	
+	VkCommandPoolCreateInfo commandPoolCreateInfo;
+	VkCommandBufferAllocateInfo commandBufferAllocateInfo;	
+	VkCommandBufferBeginInfo commandBufferBeginInfo;
+	VkRenderPassBeginInfo renderPassBeginInfo;
+	VkClearValue clearValue = { 0.0f, 0.0f, 1.0f, 1.0f };
+	VkSemaphoreCreateInfo semaphoreCreateInfo;
+	VkMemoryRequirements memoryRequirements;
+	VkMemoryAllocateInfo memoryAllocateInfo;
+	void *rawData;
+	VkDeviceSize offsets[] = { 0 };
+
+	createInstance();
+	createSurface();
+	getPhysicalDevices();		
+	createLogicalDevice();		
+	createSwapchain();
+	createImageViews();
+	createGraphicsPipeline();
+	createFramebuffer();
+	createBuffer(&vertexBuffer, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+
 
 	vkGetBufferMemoryRequirements(device, vertexBuffer, &memoryRequirements);
 
@@ -715,8 +733,8 @@ void setupVulkan()
 	vkBindBufferMemory(device, vertexBuffer, vertexBufferDeviceMemory, 0);
 
 
-	vkMapMemory(device, vertexBufferDeviceMemory, 0, bufferCreateInfo.size, 0, &rawData);
-	memcpy(rawData, vertices, bufferCreateInfo.size);
+	vkMapMemory(device, vertexBufferDeviceMemory, 0, 2 * 3 * sizeof(float), 0, &rawData);
+	memcpy(rawData, vertices, 2 * 3 * sizeof(float));
 	vkUnmapMemory(device, vertexBufferDeviceMemory);
 
 	commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
