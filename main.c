@@ -13,6 +13,13 @@
 //#include <vulkan\vulkan.h> --> wird durch GLFW includiert
 #include "matrix.h"
 
+typedef struct  {
+	mat4 mModel;
+	mat4 mView;
+	mat4 mProj;
+} UniformBufferObject;
+
+
 VkInstance instance;
 VkPhysicalDevice *pPhysicalDevices;
 VkSurfaceKHR surface;
@@ -22,6 +29,7 @@ uint32_t imagesInSwapChainCount;
 VkImageView *pImageViews;
 VkFramebuffer *pFramebuffer;
 VkShaderModule vertexShaderModule, fragmentShaderModule;
+VkDescriptorSetLayout descriptorSetLayout;
 VkPipelineLayout pipelineLayout;
 VkRenderPass renderPath;
 VkPipeline pipeline;
@@ -31,7 +39,11 @@ VkSemaphore semaphoreImageAvailable;
 VkSemaphore semaphoreRenderingDone;
 VkQueue queue;
 VkBuffer vertexBuffer;
+VkBuffer uniformBuffer;
 VkDeviceMemory vertexBufferDeviceMemory;
+VkDeviceMemory uniformBufferDeviceMemory;
+VkDescriptorPool descriptorPool;
+VkDescriptorSet descriptorSet;
 GLFWwindow *pWindow;
 
 const uint32_t wndWidth = 600;
@@ -44,6 +56,8 @@ static const char engineName[] = "MyVulkanEngine";
 static float vertices[] = { -1.0f,  1.0f,
 							 0.0f, -1.0f,
 							 1.0f,  1.0f };
+
+static UniformBufferObject ubo;
 
 void assert(VkResult result, char *msg)
 {
@@ -64,6 +78,19 @@ VkVertexInputBindingDescription getBindingDescription()
 	vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 	return vertexInputBindingDescription;
+}
+
+VkDescriptorSetLayoutBinding getDescriptorSetLayoutBinding()
+{
+	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding;
+
+	descriptorSetLayoutBinding.binding = 0;
+	descriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorSetLayoutBinding.descriptorCount = 1;
+	descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	descriptorSetLayoutBinding.pImmutableSamplers = NULL;
+
+	return descriptorSetLayoutBinding;
 }
 
 VkVertexInputAttributeDescription getAttributeDescription()
@@ -192,7 +219,7 @@ void startGLFW()
 int loadShader(char **shaderStr, char *fileName)
 {
 	unsigned int filesize;
-	FILE *file = fopen(fileName, "r");
+	FILE *file = fopen(fileName, "rb"); // ***** !!! Sehr Wichtig: hier muss das b bei "rb" übergeben werden !!! b steht für binäre Datei *****
 
 	fseek(file, 0, SEEK_END);
 	filesize = ftell(file);	
@@ -445,6 +472,24 @@ void createShaderModule(char *filename, VkShaderModule *shaderModule)
 	assert(result, "vkCreateShaderModule failed!\n");
 }
 
+void createDescriptorSetLayout()
+{
+	VkResult result;
+	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding;
+	VkDescriptorSetLayoutCreateInfo layoutInfo;
+
+	descriptorSetLayoutBinding = getDescriptorSetLayoutBinding();
+
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.pNext = NULL;
+	layoutInfo.flags = 0;
+	layoutInfo.bindingCount = 1;
+	layoutInfo.pBindings = &descriptorSetLayoutBinding;
+
+	result = vkCreateDescriptorSetLayout(device, &layoutInfo, NULL, &descriptorSetLayout);
+	assert(result, "vkCreateDescriptorSetLayout failed!\n");
+}
+
 void createGraphicsPipeline()
 {
 	VkResult result;
@@ -461,6 +506,7 @@ void createGraphicsPipeline()
 	VkPipelineMultisampleStateCreateInfo multisampleCreateInfo;
 	VkPipelineColorBlendAttachmentState colorBlendAttachment;
 	VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo;
+	VkDescriptorSetLayout setLayouts[1];
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo;
 	VkAttachmentDescription attachmentDescription;
 	VkAttachmentReference attachmentReference;
@@ -574,11 +620,12 @@ void createGraphicsPipeline()
 	colorBlendCreateInfo.blendConstants[3] = 0.0f;
 
 	//Wichitg für Shader-Uniform varibalen!!!
+	setLayouts[0] = descriptorSetLayout;
 	pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutCreateInfo.pNext = NULL;
 	pipelineLayoutCreateInfo.flags = 0;
-	pipelineLayoutCreateInfo.setLayoutCount = 0;
-	pipelineLayoutCreateInfo.pSetLayouts = NULL;
+	pipelineLayoutCreateInfo.setLayoutCount = 1;
+	pipelineLayoutCreateInfo.pSetLayouts = setLayouts;
 	pipelineLayoutCreateInfo.pushConstantRangeCount = 0;
 	pipelineLayoutCreateInfo.pPushConstantRanges = NULL;
 
@@ -677,15 +724,17 @@ void createFramebuffer()
 	}
 }
 
-void createBuffer(VkBuffer *pBuffer, VkBufferUsageFlags usage)
+void createBuffer(VkBuffer *pBuffer, VkDeviceSize bufferSize, VkBufferUsageFlags usage, VkDeviceMemory *pMemory)
 {
 	VkResult result;
 	VkBufferCreateInfo bufferCreateInfo;
+	VkMemoryRequirements memoryRequirements;
+	VkMemoryAllocateInfo memoryAllocateInfo;
 
 	bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferCreateInfo.pNext = NULL;
 	bufferCreateInfo.flags = 0;
-	bufferCreateInfo.size = 2 * 3 * sizeof(float);
+	bufferCreateInfo.size = bufferSize;
 	bufferCreateInfo.usage = usage;
 	bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	bufferCreateInfo.queueFamilyIndexCount = 0;
@@ -693,49 +742,117 @@ void createBuffer(VkBuffer *pBuffer, VkBufferUsageFlags usage)
 
 	result = vkCreateBuffer(device, &bufferCreateInfo, NULL, pBuffer);
 	assert(result, "vkCreateBuffer failed!\n");
-}
 
-void setupVulkan()
-{	
-	VkResult result;	
-	VkCommandPoolCreateInfo commandPoolCreateInfo;
-	VkCommandBufferAllocateInfo commandBufferAllocateInfo;	
-	VkCommandBufferBeginInfo commandBufferBeginInfo;
-	VkRenderPassBeginInfo renderPassBeginInfo;
-	VkClearValue clearValue = { 0.0f, 0.0f, 1.0f, 1.0f };
-	VkSemaphoreCreateInfo semaphoreCreateInfo;
-	VkMemoryRequirements memoryRequirements;
-	VkMemoryAllocateInfo memoryAllocateInfo;
-	void *rawData;
-	VkDeviceSize offsets[] = { 0 };
-
-	createInstance();
-	createSurface();
-	getPhysicalDevices();		
-	createLogicalDevice();		
-	createSwapchain();
-	createImageViews();
-	createGraphicsPipeline();
-	createFramebuffer();
-	createBuffer(&vertexBuffer, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-
-
-	vkGetBufferMemoryRequirements(device, vertexBuffer, &memoryRequirements);
+	vkGetBufferMemoryRequirements(device, *pBuffer, &memoryRequirements);
 
 	memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	memoryAllocateInfo.pNext = NULL;
 	memoryAllocateInfo.allocationSize = memoryRequirements.size;
 	memoryAllocateInfo.memoryTypeIndex = findMemoryTypeIndex(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-	result = vkAllocateMemory(device, &memoryAllocateInfo, NULL, &vertexBufferDeviceMemory);
+	result = vkAllocateMemory(device, &memoryAllocateInfo, NULL, pMemory);
 	assert(result, "vkAllocateMemory failed!\n");
 
-	vkBindBufferMemory(device, vertexBuffer, vertexBufferDeviceMemory, 0);
+	vkBindBufferMemory(device, *pBuffer, *pMemory, 0);
+}
 
+void createVertexBuffer()
+{
+	void *rawData;
+
+	createBuffer(&vertexBuffer, 2 * 3 * sizeof(float), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, &vertexBufferDeviceMemory);
 
 	vkMapMemory(device, vertexBufferDeviceMemory, 0, 2 * 3 * sizeof(float), 0, &rawData);
 	memcpy(rawData, vertices, 2 * 3 * sizeof(float));
 	vkUnmapMemory(device, vertexBufferDeviceMemory);
+}
+
+void createUniformBuffer()
+{
+	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+	
+	identity4(ubo.mModel);
+	ubo.mModel[0][0] = 0.5f;
+
+	createBuffer(&uniformBuffer, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &uniformBufferDeviceMemory);
+}
+
+void updateUniformBuffer()
+{
+	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+	void *rawData;
+	mat4 Z, D;	
+	
+	dup4(D, ubo.mModel);
+	getRotZ4(Z, -0.01f);
+	mult4(ubo.mModel, Z, D);
+	identity4(ubo.mView);
+	identity4(ubo.mProj);
+
+	vkMapMemory(device, uniformBufferDeviceMemory, 0, bufferSize, 0, &rawData);
+	memcpy(rawData, &ubo, bufferSize);
+	vkUnmapMemory(device, uniformBufferDeviceMemory);
+}
+
+void createDescriptorPool()
+{
+	VkResult result;
+	VkDescriptorPoolSize poolSize;
+	VkDescriptorPoolCreateInfo poolInfo;
+
+	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSize.descriptorCount = 1;
+
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.pNext = NULL;
+	poolInfo.flags = 0;
+	poolInfo.maxSets = 1;
+	poolInfo.poolSizeCount = 1;
+	poolInfo.pPoolSizes = &poolSize;
+
+	result = vkCreateDescriptorPool(device, &poolInfo, NULL, &descriptorPool);
+	assert(result, "vkCreateDescriptorPool failed!\n");
+}
+
+void createDescriptorSet()
+{
+	VkResult result;
+	VkDescriptorSetLayout layouts[] = { descriptorSetLayout };
+	VkDescriptorSetAllocateInfo allocInfo;
+	VkDescriptorBufferInfo bufferInfo;
+	VkWriteDescriptorSet descriptorWrite;
+
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.pNext = NULL;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = 1;
+	allocInfo.pSetLayouts = layouts;
+
+	result = vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet);
+	assert(result, "vkAllocateDescriptorSets failed!\n");
+
+	bufferInfo.buffer = uniformBuffer;
+	bufferInfo.offset = 0;
+	bufferInfo.range = sizeof(UniformBufferObject);
+
+	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrite.pNext = NULL;
+	descriptorWrite.dstSet = descriptorSet;
+	descriptorWrite.dstBinding = 0;
+	descriptorWrite.dstArrayElement = 0;
+	descriptorWrite.descriptorCount = 1;
+	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorWrite.pImageInfo = NULL;
+	descriptorWrite.pBufferInfo = &bufferInfo;
+	descriptorWrite.pTexelBufferView = NULL;
+
+	vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, NULL);
+}
+
+void createCommandPool()
+{
+	VkResult result;
+	VkCommandPoolCreateInfo commandPoolCreateInfo;
 
 	commandPoolCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	commandPoolCreateInfo.pNext = NULL;
@@ -744,6 +861,16 @@ void setupVulkan()
 
 	result = vkCreateCommandPool(device, &commandPoolCreateInfo, NULL, &commandPool);
 	assert(result, "vkCreateCommandPool!\n");
+}
+
+void createCommandBuffer()
+{
+	VkResult result;
+	VkCommandBufferAllocateInfo commandBufferAllocateInfo;
+	VkCommandBufferBeginInfo commandBufferBeginInfo;
+	VkRenderPassBeginInfo renderPassBeginInfo;
+	VkClearValue clearValue = { 0.0f, 0.0f, 1.0f, 1.0f };
+	VkDeviceSize offsets[] = { 0 };
 
 	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	commandBufferAllocateInfo.pNext = NULL;
@@ -776,9 +903,10 @@ void setupVulkan()
 		renderPassBeginInfo.clearValueCount = 1;
 		renderPassBeginInfo.pClearValues = &clearValue;
 
-		vkCmdBeginRenderPass(pCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);		
+		vkCmdBeginRenderPass(pCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets);
+		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
 		vkCmdDraw(pCommandBuffers[i], 3, 1, 0, 0);
 
 		vkCmdEndRenderPass(pCommandBuffers[i]);
@@ -786,16 +914,41 @@ void setupVulkan()
 		result = vkEndCommandBuffer(pCommandBuffers[i]);
 		assert(result, "vkEndCommandBuffer failed!\n");
 	}
+}
+
+void createSemaphore()
+{
+	VkResult result;
+	VkSemaphoreCreateInfo semaphoreCreateInfo;
 
 	semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	semaphoreCreateInfo.pNext = NULL;
-	semaphoreCreateInfo.flags = 0;		
+	semaphoreCreateInfo.flags = 0;
 
 	result = vkCreateSemaphore(device, &semaphoreCreateInfo, NULL, &semaphoreImageAvailable);
 	assert(result, "vkCreateSemaphore failed!\n");
 	result = vkCreateSemaphore(device, &semaphoreCreateInfo, NULL, &semaphoreRenderingDone);
 	assert(result, "vkCreateSemaphore failed!\n");
-			
+}
+
+void setupVulkan()
+{	
+	createInstance();
+	createSurface();
+	getPhysicalDevices();		
+	createLogicalDevice();		
+	createSwapchain();
+	createImageViews();
+	createDescriptorSetLayout();
+	createGraphicsPipeline();
+	createFramebuffer();	
+	createVertexBuffer();
+	createUniformBuffer();
+	createDescriptorPool();
+	createDescriptorSet();
+	createCommandPool();
+	createCommandBuffer();
+	createSemaphore();
 }
 
 void drawFrame()
@@ -840,6 +993,7 @@ void mainLoop()
 	while (!glfwWindowShouldClose(pWindow))
 	{
 		glfwPollEvents();
+		updateUniformBuffer();
 		drawFrame();
 	}
 }
@@ -848,7 +1002,11 @@ void shutdownVulkan()
 {
 	vkDeviceWaitIdle(device);
 
+	vkDestroyDescriptorPool(device, descriptorPool, NULL);
+	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, NULL);
+	vkFreeMemory(device, uniformBufferDeviceMemory, NULL);
 	vkFreeMemory(device, vertexBufferDeviceMemory, NULL);
+	vkDestroyBuffer(device, uniformBuffer, NULL);
 	vkDestroyBuffer(device, vertexBuffer, NULL);
 	vkDestroySemaphore(device, semaphoreImageAvailable, NULL);
 	vkDestroySemaphore(device, semaphoreRenderingDone, NULL);
