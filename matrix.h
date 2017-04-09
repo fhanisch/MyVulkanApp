@@ -3,6 +3,7 @@
 
 #define PI 3.14159f
 
+typedef float vec2[2];
 typedef float vec4[4];
 typedef vec4 mat4[4];
 

@@ -19,6 +19,11 @@ typedef struct  {
 	mat4 mProj;
 } UniformBufferObject;
 
+typedef struct {
+	vec2 pos[2];
+	vec2 texCoords[2];
+} Vertex;
+
 
 VkInstance instance;
 VkPhysicalDevice *pPhysicalDevices;
@@ -39,23 +44,32 @@ VkSemaphore semaphoreImageAvailable;
 VkSemaphore semaphoreRenderingDone;
 VkQueue queue;
 VkBuffer vertexBuffer;
+VkBuffer indexBuffer;
 VkBuffer uniformBuffer;
 VkDeviceMemory vertexBufferDeviceMemory;
+VkDeviceMemory indexBufferDeviceMemory;
 VkDeviceMemory uniformBufferDeviceMemory;
 VkDescriptorPool descriptorPool;
 VkDescriptorSet descriptorSet;
 GLFWwindow *pWindow;
 
-const uint32_t wndWidth = 600;
-const uint32_t wndHeight = 600;
+const uint32_t wndWidth = 1000;
+const uint32_t wndHeight = 1000;
 const VkFormat ourFormat = VK_FORMAT_B8G8R8A8_UNORM;
 
 static const char appName[] = "MyVulkanApp";
 static const char engineName[] = "MyVulkanEngine";
 
-static float vertices[] = { -1.0f,  1.0f,
-							 0.0f, -1.0f,
-							 1.0f,  1.0f };
+static Vertex vertices[] = { 
+								{ {-1.0f,  1.0f}, { -1.0f,  1.0f } },
+								{ {-1.0f, -1.0f}, { -1.0f, -1.0f } },
+								{ { 1.0f, -1.0f}, {  1.0f, -1.0f } },
+								{ { 1.0f,  1.0f}, {  1.0f,  1.0f } },
+								{ { 0.0f, -1.0f}, {  0.0f, -1.0f } }
+							};
+							 
+static uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
+
 
 static UniformBufferObject ubo;
 
@@ -74,7 +88,7 @@ VkVertexInputBindingDescription getBindingDescription()
 	VkVertexInputBindingDescription vertexInputBindingDescription;
 
 	vertexInputBindingDescription.binding = 0;
-	vertexInputBindingDescription.stride = 2 * sizeof(float);
+	vertexInputBindingDescription.stride = sizeof(Vertex);
 	vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 	return vertexInputBindingDescription;
@@ -93,14 +107,14 @@ VkDescriptorSetLayoutBinding getDescriptorSetLayoutBinding()
 	return descriptorSetLayoutBinding;
 }
 
-VkVertexInputAttributeDescription getAttributeDescription()
+VkVertexInputAttributeDescription getAttributeDescription(uint32_t location, uint32_t offset)
 {
 	VkVertexInputAttributeDescription vertexInputAttributeDescription;
 
-	vertexInputAttributeDescription.location = 0;
+	vertexInputAttributeDescription.location = location;
 	vertexInputAttributeDescription.binding = 0;
 	vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
-	vertexInputAttributeDescription.offset = 0;
+	vertexInputAttributeDescription.offset = offset;
 
 	return vertexInputAttributeDescription;
 }
@@ -490,13 +504,68 @@ void createDescriptorSetLayout()
 	assert(result, "vkCreateDescriptorSetLayout failed!\n");
 }
 
+void createRenderPass()
+{
+	VkResult result;
+	VkAttachmentDescription attachmentDescription;
+	VkAttachmentReference attachmentReference;
+	VkSubpassDescription subpathDescription;
+	VkSubpassDependency subpassDependency;
+	VkRenderPassCreateInfo renderPathCreateInfo;
+
+	attachmentDescription.flags = 0;
+	attachmentDescription.format = ourFormat;
+	attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+	attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	attachmentReference.attachment = 0;
+	attachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	subpathDescription.flags = 0;
+	subpathDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpathDescription.inputAttachmentCount = 0;
+	subpathDescription.pInputAttachments = NULL;
+	subpathDescription.colorAttachmentCount = 1;
+	subpathDescription.pColorAttachments = &attachmentReference;
+	subpathDescription.pResolveAttachments = NULL;
+	subpathDescription.pDepthStencilAttachment = NULL;
+	subpathDescription.preserveAttachmentCount = 0;
+	subpathDescription.pPreserveAttachments = NULL;
+
+	subpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	subpassDependency.dstSubpass = 0;
+	subpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependency.srcAccessMask = 0;
+	subpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	subpassDependency.dependencyFlags = 0;
+
+	renderPathCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPathCreateInfo.pNext = NULL;
+	renderPathCreateInfo.flags = 0;
+	renderPathCreateInfo.attachmentCount = 1;
+	renderPathCreateInfo.pAttachments = &attachmentDescription;
+	renderPathCreateInfo.subpassCount = 1;
+	renderPathCreateInfo.pSubpasses = &subpathDescription;
+	renderPathCreateInfo.dependencyCount = 1;
+	renderPathCreateInfo.pDependencies = &subpassDependency;
+
+	result = vkCreateRenderPass(device, &renderPathCreateInfo, NULL, &renderPath);
+	assert(result, "vkCreateRenderPass failed!\n");
+}
+
 void createGraphicsPipeline()
 {
 	VkResult result;
 	VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert, shaderStageCreateInfoFrag;
 	VkPipelineShaderStageCreateInfo shaderStages[2];
 	VkVertexInputBindingDescription vertexInputBindingDescription;
-	VkVertexInputAttributeDescription vertexInputAttributeDescription;
+	VkVertexInputAttributeDescription vertexInputAttributeDescription[2];
 	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo;
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo;
 	VkViewport viewport;
@@ -507,12 +576,7 @@ void createGraphicsPipeline()
 	VkPipelineColorBlendAttachmentState colorBlendAttachment;
 	VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo;
 	VkDescriptorSetLayout setLayouts[1];
-	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo;
-	VkAttachmentDescription attachmentDescription;
-	VkAttachmentReference attachmentReference;
-	VkSubpassDescription subpathDescription;
-	VkSubpassDependency subpassDependency;
-	VkRenderPassCreateInfo renderPathCreateInfo;
+	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo;	
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo;
 
 	createShaderModule("vert.spv", &vertexShaderModule);
@@ -538,15 +602,16 @@ void createGraphicsPipeline()
 	shaderStages[1] = shaderStageCreateInfoFrag;
 
 	vertexInputBindingDescription = getBindingDescription();
-	vertexInputAttributeDescription = getAttributeDescription();
+	vertexInputAttributeDescription[0] = getAttributeDescription(0, offsetof(Vertex,pos));
+	vertexInputAttributeDescription[1] = getAttributeDescription(1, offsetof(Vertex, texCoords));
 
 	vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	vertexInputCreateInfo.pNext = NULL;
 	vertexInputCreateInfo.flags = 0;
 	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
 	vertexInputCreateInfo.pVertexBindingDescriptions = &vertexInputBindingDescription;
-	vertexInputCreateInfo.vertexAttributeDescriptionCount = 1;
-	vertexInputCreateInfo.pVertexAttributeDescriptions = &vertexInputAttributeDescription;
+	vertexInputCreateInfo.vertexAttributeDescriptionCount = 2;
+	vertexInputCreateInfo.pVertexAttributeDescriptions = vertexInputAttributeDescription;
 
 	inputAssemblyCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssemblyCreateInfo.pNext = NULL;
@@ -632,51 +697,6 @@ void createGraphicsPipeline()
 	result = vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, NULL, &pipelineLayout);
 	assert(result, "vkCreatePipelineLayout failed!\n");
 
-	attachmentDescription.flags = 0;
-	attachmentDescription.format = ourFormat;
-	attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
-	attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-	attachmentReference.attachment = 0;
-	attachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	subpathDescription.flags = 0;
-	subpathDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpathDescription.inputAttachmentCount = 0;
-	subpathDescription.pInputAttachments = NULL;
-	subpathDescription.colorAttachmentCount = 1;
-	subpathDescription.pColorAttachments = &attachmentReference;
-	subpathDescription.pResolveAttachments = NULL;
-	subpathDescription.pDepthStencilAttachment = NULL;
-	subpathDescription.preserveAttachmentCount = 0;
-	subpathDescription.pPreserveAttachments = NULL;
-
-	subpassDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	subpassDependency.dstSubpass = 0;
-	subpassDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	subpassDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	subpassDependency.srcAccessMask = 0;
-	subpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	subpassDependency.dependencyFlags = 0;
-
-	renderPathCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPathCreateInfo.pNext = NULL;
-	renderPathCreateInfo.flags = 0;
-	renderPathCreateInfo.attachmentCount = 1;
-	renderPathCreateInfo.pAttachments = &attachmentDescription;
-	renderPathCreateInfo.subpassCount = 1;
-	renderPathCreateInfo.pSubpasses = &subpathDescription;
-	renderPathCreateInfo.dependencyCount = 1;
-	renderPathCreateInfo.pDependencies = &subpassDependency;
-
-	result = vkCreateRenderPass(device, &renderPathCreateInfo, NULL, &renderPath);
-	assert(result, "vkCreateRenderPass failed!\n");
-
 	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineCreateInfo.pNext = NULL;
 	pipelineCreateInfo.flags = 0;
@@ -758,23 +778,44 @@ void createBuffer(VkBuffer *pBuffer, VkDeviceSize bufferSize, VkBufferUsageFlags
 
 void createVertexBuffer()
 {
+	VkDeviceSize bufferSize = sizeof(vertices);
 	void *rawData;
 
-	createBuffer(&vertexBuffer, 2 * 3 * sizeof(float), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, &vertexBufferDeviceMemory);
+	createBuffer(&vertexBuffer, bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, &vertexBufferDeviceMemory);
 
-	vkMapMemory(device, vertexBufferDeviceMemory, 0, 2 * 3 * sizeof(float), 0, &rawData);
-	memcpy(rawData, vertices, 2 * 3 * sizeof(float));
+	vkMapMemory(device, vertexBufferDeviceMemory, 0, bufferSize, 0, &rawData);
+	memcpy(rawData, vertices, bufferSize);
 	vkUnmapMemory(device, vertexBufferDeviceMemory);
+}
+
+void createIndexBuffer()
+{
+	VkDeviceSize bufferSize = sizeof(indices);
+	void *rawData;
+
+	createBuffer(&indexBuffer, bufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, &indexBufferDeviceMemory);
+
+	vkMapMemory(device, indexBufferDeviceMemory, 0, bufferSize, 0, &rawData);
+	memcpy(rawData, indices, bufferSize);
+	vkUnmapMemory(device, indexBufferDeviceMemory);
 }
 
 void createUniformBuffer()
 {
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+	void *rawData;
 	
 	identity4(ubo.mModel);
-	ubo.mModel[0][0] = 0.5f;
+	identity4(ubo.mView);
+	identity4(ubo.mProj);
+	//ubo.mModel[0][0] = 0.5f;
 
 	createBuffer(&uniformBuffer, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &uniformBufferDeviceMemory);
+	
+	vkMapMemory(device, uniformBufferDeviceMemory, 0, bufferSize, 0, &rawData);
+	memcpy(rawData, &ubo, bufferSize);
+	vkUnmapMemory(device, uniformBufferDeviceMemory);
+	
 }
 
 void updateUniformBuffer()
@@ -906,8 +947,10 @@ void createCommandBuffer()
 		vkCmdBeginRenderPass(pCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets);
+		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
-		vkCmdDraw(pCommandBuffers[i], 3, 1, 0, 0);
+		//vkCmdDraw(pCommandBuffers[i], 3, 1, 0, 0);
+		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 , 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(pCommandBuffers[i]);
 
@@ -940,9 +983,11 @@ void setupVulkan()
 	createSwapchain();
 	createImageViews();
 	createDescriptorSetLayout();
+	createRenderPass();
 	createGraphicsPipeline();
 	createFramebuffer();	
 	createVertexBuffer();
+	createIndexBuffer();
 	createUniformBuffer();
 	createDescriptorPool();
 	createDescriptorSet();
@@ -993,7 +1038,7 @@ void mainLoop()
 	while (!glfwWindowShouldClose(pWindow))
 	{
 		glfwPollEvents();
-		updateUniformBuffer();
+		//updateUniformBuffer();
 		drawFrame();
 	}
 }

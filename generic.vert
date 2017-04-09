@@ -9,6 +9,10 @@ layout(binding = 0) uniform UniformBufferObject {
 
 
 layout(location = 0) in vec2 pos;
+layout(location = 1) in vec2 inTexCoords;
+
+layout(location = 0) out vec2 texCoords;
+
 
 out gl_PerVertex
 {
@@ -18,5 +22,6 @@ out gl_PerVertex
 void main()
 {
 	float x = 0.0;
+	texCoords = inTexCoords;
 	gl_Position = ubo.mProj * ubo.mView * ubo.mModel * vec4(pos, x, 1.0);
 }
