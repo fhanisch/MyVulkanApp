@@ -37,7 +37,7 @@ VkShaderModule vertexShaderModule, fragmentShaderModule;
 VkDescriptorSetLayout descriptorSetLayout;
 VkPipelineLayout pipelineLayout;
 VkRenderPass renderPath;
-VkPipeline pipeline;
+VkPipeline pipeline1, pipeline2;
 VkCommandPool commandPool;
 VkCommandBuffer *pCommandBuffers;
 VkSemaphore semaphoreImageAvailable;
@@ -504,6 +504,26 @@ void createDescriptorSetLayout()
 	assert(result, "vkCreateDescriptorSetLayout failed!\n");
 }
 
+void createPipelineLayout()
+{
+	VkResult result;
+	VkDescriptorSetLayout setLayouts[1];
+	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo;
+
+	//Wichitg für Shader-Uniform varibalen!!!
+	setLayouts[0] = descriptorSetLayout;
+	pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutCreateInfo.pNext = NULL;
+	pipelineLayoutCreateInfo.flags = 0;
+	pipelineLayoutCreateInfo.setLayoutCount = 1;
+	pipelineLayoutCreateInfo.pSetLayouts = setLayouts;
+	pipelineLayoutCreateInfo.pushConstantRangeCount = 0;
+	pipelineLayoutCreateInfo.pPushConstantRanges = NULL;
+
+	result = vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, NULL, &pipelineLayout);
+	assert(result, "vkCreatePipelineLayout failed!\n");
+}
+
 void createRenderPass()
 {
 	VkResult result;
@@ -559,7 +579,7 @@ void createRenderPass()
 	assert(result, "vkCreateRenderPass failed!\n");
 }
 
-void createGraphicsPipeline()
+void createGraphicsPipeline(char *pVertShaderFileNames, char *pFragShaderFileNmae, VkPipeline *pPipeline)
 {
 	VkResult result;
 	VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert, shaderStageCreateInfoFrag;
@@ -574,13 +594,11 @@ void createGraphicsPipeline()
 	VkPipelineRasterizationStateCreateInfo rasterizationCreateInfo;
 	VkPipelineMultisampleStateCreateInfo multisampleCreateInfo;
 	VkPipelineColorBlendAttachmentState colorBlendAttachment;
-	VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo;
-	VkDescriptorSetLayout setLayouts[1];
-	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo;	
+	VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo;	
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo;
 
-	createShaderModule("vert.spv", &vertexShaderModule);
-	createShaderModule("frag.spv", &fragmentShaderModule);
+	createShaderModule(pVertShaderFileNames, &vertexShaderModule);
+	createShaderModule(pFragShaderFileNmae, &fragmentShaderModule);
 
 	shaderStageCreateInfoVert.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	shaderStageCreateInfoVert.pNext = NULL;
@@ -684,19 +702,6 @@ void createGraphicsPipeline()
 	colorBlendCreateInfo.blendConstants[2] = 0.0f;
 	colorBlendCreateInfo.blendConstants[3] = 0.0f;
 
-	//Wichitg für Shader-Uniform varibalen!!!
-	setLayouts[0] = descriptorSetLayout;
-	pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutCreateInfo.pNext = NULL;
-	pipelineLayoutCreateInfo.flags = 0;
-	pipelineLayoutCreateInfo.setLayoutCount = 1;
-	pipelineLayoutCreateInfo.pSetLayouts = setLayouts;
-	pipelineLayoutCreateInfo.pushConstantRangeCount = 0;
-	pipelineLayoutCreateInfo.pPushConstantRanges = NULL;
-
-	result = vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, NULL, &pipelineLayout);
-	assert(result, "vkCreatePipelineLayout failed!\n");
-
 	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineCreateInfo.pNext = NULL;
 	pipelineCreateInfo.flags = 0;
@@ -717,7 +722,7 @@ void createGraphicsPipeline()
 	pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineCreateInfo.basePipelineIndex = -1;
 
-	result = vkCreateGraphicsPipelines(device, NULL, 1, &pipelineCreateInfo, NULL, &pipeline);
+	result = vkCreateGraphicsPipelines(device, NULL, 1, &pipelineCreateInfo, NULL, pPipeline);
 	assert(result, "vkCreateGraphicsPipelines failed!\n");
 }
 
@@ -945,12 +950,16 @@ void createCommandBuffer()
 		renderPassBeginInfo.pClearValues = &clearValue;
 
 		vkCmdBeginRenderPass(pCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline1);
 		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets);
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
 		//vkCmdDraw(pCommandBuffers[i], 3, 1, 0, 0);
 		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 , 1, 0, 0, 0);
+
+		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline2);
+		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
+		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 - 3, 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(pCommandBuffers[i]);
 
@@ -983,8 +992,10 @@ void setupVulkan()
 	createSwapchain();
 	createImageViews();
 	createDescriptorSetLayout();
+	createPipelineLayout();
 	createRenderPass();
-	createGraphicsPipeline();
+	createGraphicsPipeline("vs_generic.spv", "fs_powermeter.spv", &pipeline1);
+	createGraphicsPipeline("vs_generic.spv", "fs_generic.spv", &pipeline2);
 	createFramebuffer();	
 	createVertexBuffer();
 	createIndexBuffer();
@@ -1063,7 +1074,7 @@ void shutdownVulkan()
 		vkDestroyFramebuffer(device, pFramebuffer[i], NULL);
 	}
 	free(pFramebuffer);
-	vkDestroyPipeline(device, pipeline, NULL);
+	vkDestroyPipeline(device, pipeline1, NULL);
 	vkDestroyRenderPass(device, renderPath, NULL);
 	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
 	{
