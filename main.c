@@ -12,17 +12,7 @@
 #include <GLFW\glfw3.h>
 //#include <vulkan\vulkan.h> --> wird durch GLFW includiert
 #include "matrix.h"
-
-typedef struct  {
-	mat4 mModel;
-	mat4 mView;
-	mat4 mProj;
-} UniformBufferObject;
-
-typedef struct {
-	vec2 pos[2];
-	vec2 texCoords[2];
-} Vertex;
+#include "renderobject.h"
 
 
 VkInstance instance;
@@ -45,18 +35,19 @@ VkSemaphore semaphoreRenderingDone;
 VkQueue queue;
 VkBuffer vertexBuffer;
 VkBuffer indexBuffer;
-VkBuffer uniformBuffer;
+VkBuffer uniformBuffer, uniformBuffer2;
 VkDeviceMemory vertexBufferDeviceMemory;
 VkDeviceMemory indexBufferDeviceMemory;
-VkDeviceMemory uniformBufferDeviceMemory;
+VkDeviceMemory uniformBufferDeviceMemory, uniformBufferDeviceMemory2;
 VkDescriptorPool descriptorPool;
-VkDescriptorSet descriptorSet;
+VkDescriptorSet descriptorSet, descriptorSet2;
 GLFWwindow *pWindow;
 
 const uint32_t wndWidth = 1000;
 const uint32_t wndHeight = 1000;
 const VkFormat ourFormat = VK_FORMAT_B8G8R8A8_UNORM;
 
+// internal linkage --> Definition static: https://de.wikipedia.org/wiki/Static_(Schl%C3%BCsselwort) --> ohne 'static' würde 'extern' entsprechen
 static const char appName[] = "MyVulkanApp";
 static const char engineName[] = "MyVulkanEngine";
 
@@ -69,9 +60,11 @@ static Vertex vertices[] = {
 							};
 							 
 static uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
+static uint16_t indices2[] = { 0, 4, 3 };
 
 
-static UniformBufferObject ubo;
+static RenderObject obj1;
+static RenderObject obj2;
 
 void assert(VkResult result, char *msg)
 {
@@ -795,32 +788,26 @@ void createVertexBuffer()
 
 void createIndexBuffer()
 {
-	VkDeviceSize bufferSize = sizeof(indices);
+	VkDeviceSize bufferSize = sizeof(indices) + sizeof(indices2);
 	void *rawData;
 
 	createBuffer(&indexBuffer, bufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, &indexBufferDeviceMemory);
 
 	vkMapMemory(device, indexBufferDeviceMemory, 0, bufferSize, 0, &rawData);
-	memcpy(rawData, indices, bufferSize);
+	memcpy(rawData, indices, sizeof(indices));
+	memcpy((char*)rawData + sizeof(indices), indices2, sizeof(indices2));
 	vkUnmapMemory(device, indexBufferDeviceMemory);
 }
 
-void createUniformBuffer()
+void createUniformBuffer(VkDeviceSize bufferSize, UniformBufferObject *pUBO, VkBuffer *pUniformBuffer, VkDeviceMemory *pUniformBufferDeviceMemory)
 {
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 	void *rawData;
-	
-	identity4(ubo.mModel);
-	identity4(ubo.mView);
-	identity4(ubo.mProj);
-	//ubo.mModel[0][0] = 0.5f;
 
-	createBuffer(&uniformBuffer, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, &uniformBufferDeviceMemory);
+	createBuffer(pUniformBuffer, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, pUniformBufferDeviceMemory);
 	
-	vkMapMemory(device, uniformBufferDeviceMemory, 0, bufferSize, 0, &rawData);
-	memcpy(rawData, &ubo, bufferSize);
-	vkUnmapMemory(device, uniformBufferDeviceMemory);
-	
+	vkMapMemory(device, *pUniformBufferDeviceMemory, 0, bufferSize, 0, &rawData);
+	memcpy(rawData, pUBO, bufferSize);
+	vkUnmapMemory(device, *pUniformBufferDeviceMemory);	
 }
 
 void updateUniformBuffer()
@@ -829,15 +816,13 @@ void updateUniformBuffer()
 	void *rawData;
 	mat4 Z, D;	
 	
-	dup4(D, ubo.mModel);
+	dup4(D, obj2.ubo.mModel);
 	getRotZ4(Z, -0.01f);
-	mult4(ubo.mModel, Z, D);
-	identity4(ubo.mView);
-	identity4(ubo.mProj);
+	mult4(obj2.ubo.mModel, Z, D);
 
-	vkMapMemory(device, uniformBufferDeviceMemory, 0, bufferSize, 0, &rawData);
-	memcpy(rawData, &ubo, bufferSize);
-	vkUnmapMemory(device, uniformBufferDeviceMemory);
+	vkMapMemory(device, uniformBufferDeviceMemory2, 0, bufferSize, 0, &rawData);
+	memcpy(rawData, &obj2.ubo.mModel, bufferSize);
+	vkUnmapMemory(device, uniformBufferDeviceMemory2);
 }
 
 void createDescriptorPool()
@@ -847,12 +832,12 @@ void createDescriptorPool()
 	VkDescriptorPoolCreateInfo poolInfo;
 
 	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSize.descriptorCount = 1;
+	poolSize.descriptorCount = 2; // funktioniert auch mit 1 --> warum?
 
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.pNext = NULL;
 	poolInfo.flags = 0;
-	poolInfo.maxSets = 1;
+	poolInfo.maxSets = 2;
 	poolInfo.poolSizeCount = 1;
 	poolInfo.pPoolSizes = &poolSize;
 
@@ -860,7 +845,7 @@ void createDescriptorPool()
 	assert(result, "vkCreateDescriptorPool failed!\n");
 }
 
-void createDescriptorSet()
+void createDescriptorSet(VkBuffer uniformBuffer, VkDescriptorSet *pDescriptorSet)
 {
 	VkResult result;
 	VkDescriptorSetLayout layouts[] = { descriptorSetLayout };
@@ -874,7 +859,7 @@ void createDescriptorSet()
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = layouts;
 
-	result = vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet);
+	result = vkAllocateDescriptorSets(device, &allocInfo, pDescriptorSet);
 	assert(result, "vkAllocateDescriptorSets failed!\n");
 
 	bufferInfo.buffer = uniformBuffer;
@@ -883,7 +868,7 @@ void createDescriptorSet()
 
 	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrite.pNext = NULL;
-	descriptorWrite.dstSet = descriptorSet;
+	descriptorWrite.dstSet = *pDescriptorSet;
 	descriptorWrite.dstBinding = 0;
 	descriptorWrite.dstArrayElement = 0;
 	descriptorWrite.descriptorCount = 1;
@@ -958,8 +943,10 @@ void createCommandBuffer()
 		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 , 1, 0, 0, 0);
 
 		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline2);
-		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
-		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 - 3, 1, 0, 0, 0);
+		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices), VK_INDEX_TYPE_UINT16);
+		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet2, 0, NULL);
+		//vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 - 3, 1, 0, 0, 0);
+		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices2) / 2, 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(pCommandBuffers[i]);
 
@@ -985,6 +972,15 @@ void createSemaphore()
 
 void setupVulkan()
 {	
+	identity4(obj1.ubo.mModel);
+	identity4(obj1.ubo.mView);
+	identity4(obj1.ubo.mProj);
+	//obj1.ubo.mModel[0][0] = 0.5f;
+	identity4(obj2.ubo.mModel);
+	identity4(obj2.ubo.mView);
+	identity4(obj2.ubo.mProj);
+	obj2.ubo.mModel[0][0] = 0.25f;
+
 	createInstance();
 	createSurface();
 	getPhysicalDevices();		
@@ -999,9 +995,11 @@ void setupVulkan()
 	createFramebuffer();	
 	createVertexBuffer();
 	createIndexBuffer();
-	createUniformBuffer();
+	createUniformBuffer(sizeof(UniformBufferObject), &obj1.ubo, &uniformBuffer, &uniformBufferDeviceMemory);
+	createUniformBuffer(sizeof(UniformBufferObject), &obj2.ubo, &uniformBuffer2, &uniformBufferDeviceMemory2);
 	createDescriptorPool();
-	createDescriptorSet();
+	createDescriptorSet(uniformBuffer, &descriptorSet);
+	createDescriptorSet(uniformBuffer2, &descriptorSet2);
 	createCommandPool();
 	createCommandBuffer();
 	createSemaphore();
@@ -1049,7 +1047,7 @@ void mainLoop()
 	while (!glfwWindowShouldClose(pWindow))
 	{
 		glfwPollEvents();
-		//updateUniformBuffer();
+		updateUniformBuffer();
 		drawFrame();
 	}
 }
