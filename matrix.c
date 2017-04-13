@@ -71,3 +71,20 @@ void mult4(mat4 M, mat4 a, mat4 b)
 			for (k = 0; k < 4; ++k) M[c][r] += a[k][r] * b[c][k];
 		}
 }
+
+void getFrustum(mat4 M, float l, float r, float b, float t, float n, float f)
+{
+	M[0][0] = 2.f * n / (r - l);
+	M[0][1] = M[0][2] = M[0][3] = 0.f;
+
+	M[1][1] = 2.f * n / (t - b);
+	M[1][0] = M[1][2] = M[1][3] = 0.f;
+
+	M[2][0] = (r + l) / (r - l);
+	M[2][1] = (t + b) / (t - b);
+	M[2][2] = -(f + n) / (f - n);
+	M[2][3] = -1.f;
+
+	M[3][2] = -2.f * (f * n) / (f - n);
+	M[3][0] = M[3][1] = M[3][3] = 0.f;
+}

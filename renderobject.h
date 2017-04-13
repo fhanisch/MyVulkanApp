@@ -8,9 +8,14 @@ typedef struct {
 } UniformBufferObject;
 
 typedef struct {
-	vec2 pos[2];
-	vec2 texCoords[2];
+	vec2 pos;
+	vec2 texCoords;
 } Vertex;
+
+typedef struct {
+	vec3 pos;
+	vec2 texCoords;
+} Vertex3D;
 
 typedef struct {
 	UniformBufferObject ubo;

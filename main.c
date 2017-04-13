@@ -27,7 +27,7 @@ VkShaderModule vertexShaderModule, fragmentShaderModule;
 VkDescriptorSetLayout descriptorSetLayout;
 VkPipelineLayout pipelineLayout;
 VkRenderPass renderPath;
-VkPipeline pipeline1, pipeline2;
+VkPipeline pipeline1, pipeline2, pipeline3;
 VkCommandPool commandPool;
 VkCommandBuffer *pCommandBuffers;
 VkSemaphore semaphoreImageAvailable;
@@ -35,14 +35,14 @@ VkSemaphore semaphoreRenderingDone;
 VkQueue queue;
 VkBuffer vertexBuffer;
 VkBuffer indexBuffer;
-VkBuffer uniformBuffer, uniformBuffer2;
+VkBuffer uniformBuffer, uniformBuffer2, uniformBuffer3;
 VkBuffer uniformStagingBuffer;
 VkDeviceMemory vertexBufferDeviceMemory;
 VkDeviceMemory indexBufferDeviceMemory;
-VkDeviceMemory uniformBufferDeviceMemory, uniformBufferDeviceMemory2;
+VkDeviceMemory uniformBufferDeviceMemory, uniformBufferDeviceMemory2, uniformBufferDeviceMemory3;
 VkDeviceMemory uniformStagingBufferMemory;
 VkDescriptorPool descriptorPool;
-VkDescriptorSet descriptorSet, descriptorSet2;
+VkDescriptorSet descriptorSet, descriptorSet2, descriptorSet3;
 GLFWwindow *pWindow;
 
 const uint32_t wndWidth = 1000;
@@ -60,13 +60,22 @@ static Vertex vertices[] = {
 								{ { 1.0f,  1.0f}, {  1.0f,  1.0f } },
 								{ { 0.0f, -1.0f}, {  0.0f, -1.0f } }
 							};
-							 
+							
+static Vertex3D verticesPlane[] = {
+	{ { -0.5f, -0.5f, 10.0f },{ 0.0f, 0.0f } },
+	{ {  0.5f, -0.5f, 10.0f },{ 1.0f, 0.0f } },
+	{ {  0.5f,  0.5f, 10.0f },{ 1.0f, 1.0f } },
+	{ { -0.5f,  0.5f, 10.0f }, { 0.0f, 1.0f } }
+
+};
+
 static uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
 static uint16_t indices2[] = { 0, 4, 3 };
-
+static uint16_t indices_plane[] = { 0, 1, 2, 2, 3, 0 };
 
 static RenderObject obj1;
 static RenderObject obj2;
+static RenderObject obj3;
 
 void assert(VkResult result, char *msg)
 {
@@ -78,12 +87,12 @@ void assert(VkResult result, char *msg)
 	}
 }
 
-VkVertexInputBindingDescription getBindingDescription()
+VkVertexInputBindingDescription getBindingDescription(uint32_t stride)
 {
 	VkVertexInputBindingDescription vertexInputBindingDescription;
 
 	vertexInputBindingDescription.binding = 0;
-	vertexInputBindingDescription.stride = sizeof(Vertex);
+	vertexInputBindingDescription.stride = stride;
 	vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 	return vertexInputBindingDescription;
@@ -102,13 +111,13 @@ VkDescriptorSetLayoutBinding getDescriptorSetLayoutBinding()
 	return descriptorSetLayoutBinding;
 }
 
-VkVertexInputAttributeDescription getAttributeDescription(uint32_t location, uint32_t offset)
+VkVertexInputAttributeDescription getAttributeDescription(uint32_t location, uint32_t offset, VkFormat format)
 {
 	VkVertexInputAttributeDescription vertexInputAttributeDescription;
 
 	vertexInputAttributeDescription.location = location;
 	vertexInputAttributeDescription.binding = 0;
-	vertexInputAttributeDescription.format = VK_FORMAT_R32G32_SFLOAT;
+	vertexInputAttributeDescription.format = format;
 	vertexInputAttributeDescription.offset = offset;
 
 	return vertexInputAttributeDescription;
@@ -425,6 +434,11 @@ void createSwapchain()
 	assert(result, "vkCreateSwapchainKHR failed!\n");
 }
 
+void createImage()
+{
+	VkImageCreateInfo imageCreateInfo;
+}
+
 void createImageViews()
 {
 	VkResult result;
@@ -574,7 +588,7 @@ void createRenderPass()
 	assert(result, "vkCreateRenderPass failed!\n");
 }
 
-void createGraphicsPipeline(char *pVertShaderFileNames, char *pFragShaderFileNmae, VkPipeline *pPipeline)
+void createGraphicsPipeline(char *pVertShaderFileNames, char *pFragShaderFileNmae, VkPipeline *pPipeline, VkFormat vertexFormat)
 {
 	VkResult result;
 	VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert, shaderStageCreateInfoFrag;
@@ -614,9 +628,9 @@ void createGraphicsPipeline(char *pVertShaderFileNames, char *pFragShaderFileNma
 	shaderStages[0] = shaderStageCreateInfoVert;
 	shaderStages[1] = shaderStageCreateInfoFrag;
 
-	vertexInputBindingDescription = getBindingDescription();
-	vertexInputAttributeDescription[0] = getAttributeDescription(0, offsetof(Vertex,pos));
-	vertexInputAttributeDescription[1] = getAttributeDescription(1, offsetof(Vertex, texCoords));
+	vertexInputBindingDescription = getBindingDescription(sizeof(Vertex3D));
+	vertexInputAttributeDescription[0] = getAttributeDescription(0, offsetof(Vertex3D,pos), vertexFormat);
+	vertexInputAttributeDescription[1] = getAttributeDescription(1, offsetof(Vertex3D, texCoords), vertexFormat);
 
 	vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	vertexInputCreateInfo.pNext = NULL;
@@ -744,6 +758,13 @@ void createFramebuffer()
 	}
 }
 
+void createDepthResources()
+{
+	VkFormat depthFormat;
+
+	depthFormat = VK_FORMAT_D32_SFLOAT;
+}
+
 void createBuffer(VkBuffer *pBuffer, VkDeviceSize bufferSize, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkDeviceMemory *pMemory)
 {
 	VkResult result;
@@ -825,7 +846,7 @@ void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 
 void createVertexBuffer()
 {
-	VkDeviceSize bufferSize = sizeof(vertices);
+	VkDeviceSize bufferSize = sizeof(vertices) + sizeof(verticesPlane);
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
 	void *rawData;
@@ -833,7 +854,8 @@ void createVertexBuffer()
 	createBuffer(&stagingBuffer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBufferMemory);
 
 	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &rawData);
-	memcpy(rawData, vertices, bufferSize);
+	memcpy(rawData, &vertices, bufferSize);
+	memcpy((char*)rawData + sizeof(vertices), &verticesPlane, sizeof(verticesPlane));
 	vkUnmapMemory(device, stagingBufferMemory);
 
 	createBuffer(&vertexBuffer, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &vertexBufferDeviceMemory);
@@ -846,7 +868,7 @@ void createVertexBuffer()
 
 void createIndexBuffer()
 {
-	VkDeviceSize bufferSize = sizeof(indices) + sizeof(indices2);
+	VkDeviceSize bufferSize = sizeof(indices) + sizeof(indices2) + sizeof(indices_plane);
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
 	void *rawData;
@@ -856,6 +878,7 @@ void createIndexBuffer()
 	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &rawData);
 	memcpy(rawData, indices, sizeof(indices));
 	memcpy((char*)rawData + sizeof(indices), indices2, sizeof(indices2));
+	memcpy((char*)rawData + sizeof(indices)+ sizeof(indices2), indices_plane, sizeof(indices_plane));
 	vkUnmapMemory(device, stagingBufferMemory);
 
 	createBuffer(&indexBuffer, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &indexBufferDeviceMemory);
@@ -906,12 +929,12 @@ void createDescriptorPool()
 	VkDescriptorPoolCreateInfo poolInfo;
 
 	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSize.descriptorCount = 2; // funktioniert auch mit 1 --> warum?
+	poolSize.descriptorCount = 3; // funktioniert auch mit 1 --> warum?
 
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.pNext = NULL;
 	poolInfo.flags = 0;
-	poolInfo.maxSets = 2;
+	poolInfo.maxSets = 3;
 	poolInfo.poolSizeCount = 1;
 	poolInfo.pPoolSizes = &poolSize;
 
@@ -975,7 +998,8 @@ void createCommandBuffer()
 	VkCommandBufferBeginInfo commandBufferBeginInfo;
 	VkRenderPassBeginInfo renderPassBeginInfo;
 	VkClearValue clearValue = { 0.0f, 0.0f, 1.0f, 1.0f };
-	VkDeviceSize offsets[] = { 0 };
+	//VkDeviceSize offsets[] = { 0 };
+	VkDeviceSize offsets[] = { sizeof(vertices) };
 
 	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	commandBufferAllocateInfo.pNext = NULL;
@@ -1009,6 +1033,7 @@ void createCommandBuffer()
 		renderPassBeginInfo.pClearValues = &clearValue;
 
 		vkCmdBeginRenderPass(pCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+		/*
 		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline1);
 		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets);
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
@@ -1021,7 +1046,14 @@ void createCommandBuffer()
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet2, 0, NULL);
 		//vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 - 3, 1, 0, 0, 0);
 		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices2) / 2, 1, 0, 0, 0);
-
+		*/
+		
+		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline3);
+		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets);
+		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices) + sizeof(indices2), VK_INDEX_TYPE_UINT16);
+		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet3, 0, NULL);		
+		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices_plane) / 2, 1, 0, 0, 0);		
+		
 		vkCmdEndRenderPass(pCommandBuffers[i]);
 
 		result = vkEndCommandBuffer(pCommandBuffers[i]);
@@ -1055,6 +1087,12 @@ void setupVulkan()
 	identity4(obj2.ubo.mProj);
 	obj2.ubo.mModel[0][0] = 0.25f;
 
+	identity4(obj3.ubo.mModel);
+	identity4(obj3.ubo.mView);
+	identity4(obj3.ubo.mProj);
+	obj3.ubo.mProj[2][3] = 1.f;
+	//getFrustum(obj3.ubo.mProj, 0.25f, 0.25f, 0.25f, 0.25f, 0.5f, 50.0f);
+
 	createInstance();
 	createSurface();
 	getPhysicalDevices();		
@@ -1064,17 +1102,21 @@ void setupVulkan()
 	createDescriptorSetLayout();
 	createPipelineLayout();
 	createRenderPass();
-	createGraphicsPipeline("vs_generic.spv", "fs_powermeter.spv", &pipeline1);
-	createGraphicsPipeline("vs_generic.spv", "fs_generic.spv", &pipeline2);
+	createGraphicsPipeline("vs_generic.spv", "fs_powermeter.spv", &pipeline1, VK_FORMAT_R32G32_SFLOAT);
+	createGraphicsPipeline("vs_generic.spv", "fs_generic.spv", &pipeline2, VK_FORMAT_R32G32_SFLOAT);
+	createGraphicsPipeline("vs_generic3D.spv", "fs_generic.spv", &pipeline3, VK_FORMAT_R32G32B32_SFLOAT);
 	createFramebuffer();
 	createCommandPool();
-	createVertexBuffer();
+	createDepthResources();
+	createVertexBuffer();	
 	createIndexBuffer();
 	createUniformBuffer(sizeof(UniformBufferObject), &obj1.ubo, &uniformBuffer, &uniformBufferDeviceMemory);
 	createUniformBuffer(sizeof(UniformBufferObject), &obj2.ubo, &uniformBuffer2, &uniformBufferDeviceMemory2);
+	createUniformBuffer(sizeof(UniformBufferObject), &obj3.ubo, &uniformBuffer3, &uniformBufferDeviceMemory3);
 	createDescriptorPool();
 	createDescriptorSet(uniformBuffer, &descriptorSet);
-	createDescriptorSet(uniformBuffer2, &descriptorSet2);	
+	createDescriptorSet(uniformBuffer2, &descriptorSet2);
+	createDescriptorSet(uniformBuffer3, &descriptorSet3);
 	createCommandBuffer();
 	createSemaphore();
 }
