@@ -7,42 +7,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libusb-1.0\libusb.h>
 //#define VK_USE_PLATFORM_WIN32_KHR --> GLFW erledigt das
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW\glfw3.h>
 //#include <vulkan\vulkan.h> --> wird durch GLFW includiert
+#include "MyVulkanEngine.h"
 #include "matrix.h"
 #include "renderobject.h"
+#include "renderscene.h"
 
+#define GAMECONTROLLER_VENDOR_ID 0x046d
+#define GAMECONTROLLER_PRODUCT_ID 0xc218
+#define HID_INTERFACE 0
+#define ENDPOINT_ADDRESS 0x81
 
-VkInstance instance;
-VkPhysicalDevice *pPhysicalDevices;
-VkSurfaceKHR surface;
-VkDevice device;
-VkSwapchainKHR swapchain;
-uint32_t imagesInSwapChainCount;
-VkImageView *pImageViews;
-VkFramebuffer *pFramebuffer;
-VkShaderModule vertexShaderModule, fragmentShaderModule;
-VkDescriptorSetLayout descriptorSetLayout;
-VkPipelineLayout pipelineLayout;
-VkRenderPass renderPath;
-VkPipeline pipeline1, pipeline2, pipeline3;
-VkCommandPool commandPool;
-VkCommandBuffer *pCommandBuffers;
-VkSemaphore semaphoreImageAvailable;
-VkSemaphore semaphoreRenderingDone;
-VkQueue queue;
-VkBuffer vertexBuffer;
-VkBuffer indexBuffer;
-VkBuffer uniformBuffer, uniformBuffer2, uniformBuffer3;
-VkBuffer uniformStagingBuffer;
-VkDeviceMemory vertexBufferDeviceMemory;
-VkDeviceMemory indexBufferDeviceMemory;
-VkDeviceMemory uniformBufferDeviceMemory, uniformBufferDeviceMemory2, uniformBufferDeviceMemory3;
-VkDeviceMemory uniformStagingBufferMemory;
-VkDescriptorPool descriptorPool;
-VkDescriptorSet descriptorSet, descriptorSet2, descriptorSet3;
+libusb_device_handle *hid_gamecontroller;
+
 GLFWwindow *pWindow;
 
 const uint32_t wndWidth = 1000;
@@ -62,16 +43,19 @@ static Vertex vertices[] = {
 							};
 							
 static Vertex3D verticesPlane[] = {
-	{ { -0.5f, -0.5f, 10.0f },{ 0.0f, 0.0f } },
-	{ {  0.5f, -0.5f, 10.0f },{ 1.0f, 0.0f } },
-	{ {  0.5f,  0.5f, 10.0f },{ 1.0f, 1.0f } },
-	{ { -0.5f,  0.5f, 10.0f }, { 0.0f, 1.0f } }
-
+	{ { -1.0f,  1.0f,  1.0f }, { 0.0f, 0.0f } },
+	{ {  1.0f,  1.0f,  1.0f }, { 1.0f, 1.0f } },
+	{ {  1.0f, -1.0f,  1.0f }, { 1.0f, 0.0f } },	
+	{ { -1.0f, -1.0f,  1.0f }, { 0.0f, 1.0f } },
+	{ { -1.0f,  1.0f, -1.0f }, { 0.0f, 0.0f } },
+	{ {  1.0f,  1.0f, -1.0f }, { 1.0f, 1.0f } },
+	{ {  1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f } },
+	{ { -1.0f, -1.0f, -1.0f }, { 0.0f, 1.0f } }
 };
 
 static uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
 static uint16_t indices2[] = { 0, 4, 3 };
-static uint16_t indices_plane[] = { 0, 1, 2, 2, 3, 0 };
+static uint16_t indices_plane[] = { 0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4 };
 
 static RenderObject obj1;
 static RenderObject obj2;
@@ -588,7 +572,7 @@ void createRenderPass()
 	assert(result, "vkCreateRenderPass failed!\n");
 }
 
-void createGraphicsPipeline(char *pVertShaderFileNames, char *pFragShaderFileNmae, VkPipeline *pPipeline, VkFormat vertexFormat)
+void createGraphicsPipeline(PipelineCreateInfo *pPipelineCreateInfo, VkPipeline *pPipeline)
 {
 	VkResult result;
 	VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert, shaderStageCreateInfoFrag;
@@ -606,8 +590,8 @@ void createGraphicsPipeline(char *pVertShaderFileNames, char *pFragShaderFileNma
 	VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo;	
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo;
 
-	createShaderModule(pVertShaderFileNames, &vertexShaderModule);
-	createShaderModule(pFragShaderFileNmae, &fragmentShaderModule);
+	createShaderModule(pPipelineCreateInfo->pVertShaderFileName, &vertexShaderModule);
+	createShaderModule(pPipelineCreateInfo->pFragShaderFileName, &fragmentShaderModule);
 
 	shaderStageCreateInfoVert.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	shaderStageCreateInfoVert.pNext = NULL;
@@ -628,9 +612,9 @@ void createGraphicsPipeline(char *pVertShaderFileNames, char *pFragShaderFileNma
 	shaderStages[0] = shaderStageCreateInfoVert;
 	shaderStages[1] = shaderStageCreateInfoFrag;
 
-	vertexInputBindingDescription = getBindingDescription(sizeof(Vertex3D));
-	vertexInputAttributeDescription[0] = getAttributeDescription(0, offsetof(Vertex3D,pos), vertexFormat);
-	vertexInputAttributeDescription[1] = getAttributeDescription(1, offsetof(Vertex3D, texCoords), vertexFormat);
+	vertexInputBindingDescription = getBindingDescription(pPipelineCreateInfo->stride);
+	vertexInputAttributeDescription[0] = getAttributeDescription(0, pPipelineCreateInfo->posOffset , pPipelineCreateInfo->vertexFormat);
+	vertexInputAttributeDescription[1] = getAttributeDescription(1, pPipelineCreateInfo->texCoordsOffset, pPipelineCreateInfo->vertexFormat);
 
 	vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	vertexInputCreateInfo.pNext = NULL;
@@ -672,7 +656,7 @@ void createGraphicsPipeline(char *pVertShaderFileNames, char *pFragShaderFileNma
 	rasterizationCreateInfo.depthClampEnable = VK_FALSE;
 	rasterizationCreateInfo.rasterizerDiscardEnable = VK_FALSE;
 	rasterizationCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
-	rasterizationCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizationCreateInfo.cullMode = 0; // Front and Back werden gerendert
 	rasterizationCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterizationCreateInfo.depthBiasEnable = VK_FALSE;
 	rasterizationCreateInfo.depthBiasConstantFactor = 0.0f;
@@ -889,12 +873,16 @@ void createIndexBuffer()
 	vkDestroyBuffer(device, stagingBuffer, NULL);
 }
 
-void createUniformBuffer(VkDeviceSize bufferSize, UniformBufferObject *pUBO, VkBuffer *pUniformBuffer, VkDeviceMemory *pUniformBufferDeviceMemory)
+void createUniformStagingBuffer()
 {
-	void *rawData;
+	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+	createBuffer(&uniformStagingBuffer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &uniformStagingBufferMemory);
+}
 
-	createBuffer(&uniformStagingBuffer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &uniformStagingBufferMemory);	
-	// Achtung! uniformStagingBuffer wird 2x created ohne destroy
+void createUniformBuffer(UniformBufferObject *pUBO, VkBuffer *pUniformBuffer, VkDeviceMemory *pUniformBufferDeviceMemory)
+{
+	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+	void *rawData;	
 
 	vkMapMemory(device, uniformStagingBufferMemory, 0, bufferSize, 0, &rawData);
 	memcpy(rawData, pUBO, bufferSize);
@@ -909,17 +897,18 @@ void updateUniformBuffer()
 {
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 	void *rawData;
-	mat4 Z, D;	
 	
-	dup4(D, obj2.ubo.mModel);
-	getRotZ4(Z, -0.01f);
-	mult4(obj2.ubo.mModel, Z, D);
-
 	vkMapMemory(device, uniformStagingBufferMemory, 0, bufferSize, 0, &rawData);
 	memcpy(rawData, &obj2.ubo.mModel, bufferSize);
 	vkUnmapMemory(device, uniformStagingBufferMemory);
 
 	copyBuffer(uniformStagingBuffer, uniformBuffer2, bufferSize);
+
+	vkMapMemory(device, uniformStagingBufferMemory, 0, bufferSize, 0, &rawData);
+	memcpy(rawData, &obj3.ubo.mModel, bufferSize);
+	vkUnmapMemory(device, uniformStagingBufferMemory);
+
+	copyBuffer(uniformStagingBuffer, uniformBuffer3, bufferSize);
 }
 
 void createDescriptorPool()
@@ -998,8 +987,8 @@ void createCommandBuffer()
 	VkCommandBufferBeginInfo commandBufferBeginInfo;
 	VkRenderPassBeginInfo renderPassBeginInfo;
 	VkClearValue clearValue = { 0.0f, 0.0f, 1.0f, 1.0f };
-	//VkDeviceSize offsets[] = { 0 };
-	VkDeviceSize offsets[] = { sizeof(vertices) };
+	VkDeviceSize offsets[] = { 0 };
+	VkDeviceSize offsets2[] = { sizeof(vertices) };
 
 	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	commandBufferAllocateInfo.pNext = NULL;
@@ -1049,10 +1038,10 @@ void createCommandBuffer()
 		*/
 		
 		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline3);
-		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets);
+		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets2);
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices) + sizeof(indices2), VK_INDEX_TYPE_UINT16);
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet3, 0, NULL);		
-		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices_plane) / 2, 1, 0, 0, 0);		
+		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices_plane) / 2, 1, 0, 0, 0);	
 		
 		vkCmdEndRenderPass(pCommandBuffers[i]);
 
@@ -1087,11 +1076,10 @@ void setupVulkan()
 	identity4(obj2.ubo.mProj);
 	obj2.ubo.mModel[0][0] = 0.25f;
 
-	identity4(obj3.ubo.mModel);
+	getTrans4(obj3.ubo.mModel, 0.0f, 0.0f, -7.0f);
 	identity4(obj3.ubo.mView);
 	identity4(obj3.ubo.mProj);
-	obj3.ubo.mProj[2][3] = 1.f;
-	//getFrustum(obj3.ubo.mProj, 0.25f, 0.25f, 0.25f, 0.25f, 0.5f, 50.0f);
+	getFrustum(obj3.ubo.mProj, 0.25f, 0.25f, 0.5f, 10.0f);
 
 	createInstance();
 	createSurface();
@@ -1102,17 +1090,18 @@ void setupVulkan()
 	createDescriptorSetLayout();
 	createPipelineLayout();
 	createRenderPass();
-	createGraphicsPipeline("vs_generic.spv", "fs_powermeter.spv", &pipeline1, VK_FORMAT_R32G32_SFLOAT);
-	createGraphicsPipeline("vs_generic.spv", "fs_generic.spv", &pipeline2, VK_FORMAT_R32G32_SFLOAT);
-	createGraphicsPipeline("vs_generic3D.spv", "fs_generic.spv", &pipeline3, VK_FORMAT_R32G32B32_SFLOAT);
+	createGraphicsPipeline(&createInfo1, &pipeline1);
+	createGraphicsPipeline(&createInfo2, &pipeline2);
+	createGraphicsPipeline(&createInfo3, &pipeline3);
 	createFramebuffer();
 	createCommandPool();
 	createDepthResources();
 	createVertexBuffer();	
 	createIndexBuffer();
-	createUniformBuffer(sizeof(UniformBufferObject), &obj1.ubo, &uniformBuffer, &uniformBufferDeviceMemory);
-	createUniformBuffer(sizeof(UniformBufferObject), &obj2.ubo, &uniformBuffer2, &uniformBufferDeviceMemory2);
-	createUniformBuffer(sizeof(UniformBufferObject), &obj3.ubo, &uniformBuffer3, &uniformBufferDeviceMemory3);
+	createUniformStagingBuffer();
+	createUniformBuffer(&obj1.ubo, &uniformBuffer, &uniformBufferDeviceMemory);
+	createUniformBuffer(&obj2.ubo, &uniformBuffer2, &uniformBufferDeviceMemory2);
+	createUniformBuffer(&obj3.ubo, &uniformBuffer3, &uniformBufferDeviceMemory3);
 	createDescriptorPool();
 	createDescriptorSet(uniformBuffer, &descriptorSet);
 	createDescriptorSet(uniformBuffer2, &descriptorSet2);
@@ -1160,8 +1149,41 @@ void drawFrame()
 
 void mainLoop()
 {
-	while (!glfwWindowShouldClose(pWindow))
-	{
+	int result;
+	boolean quit = FALSE;
+	int transferred;
+	unsigned char gamectrlbuf[8];
+	mat4 rotY, rotZ, D, transT;
+	float lStickX, lStickY, rStickX, rStickY;
+
+	while (!glfwWindowShouldClose(pWindow) && !quit)
+	{		
+		result = libusb_bulk_transfer(hid_gamecontroller, ENDPOINT_ADDRESS, gamectrlbuf, 8, &transferred, 1);
+
+		if (result == 0 || result == -7)
+		{
+			lStickX = -((float)gamectrlbuf[0] / 255.0f * 2.0f - 1.0f) / 10.0f;
+			lStickY = -((float)gamectrlbuf[1] / 255.0f * 2.0f - 1.0f) / 10.0f;
+			rStickX = -((float)gamectrlbuf[2] / 255.0f * 2.0f - 1.0f) / 5.0f;
+			rStickY = -((float)gamectrlbuf[3] / 255.0f * 2.0f - 1.0f) / 2.0f;			
+			getRotY4(rotY, rStickX);
+			getRotZ4(rotZ, rStickY);
+			getTrans4(transT, lStickX, 0.0f, lStickY);
+			//printf("%0.2f\n", -((float)gamectrlbuf[1] / 255.0f * 2.0f - 1.0f));
+		}
+		else
+		{
+			printf("Transfer Error: %d\n", result);
+			quit = TRUE;
+		}
+
+		dup4(D, obj2.ubo.mModel);
+		mult4(obj2.ubo.mModel, rotZ, D);
+		dup4(D, obj3.ubo.mView);
+		mult4(obj3.ubo.mView, rotY, D);
+		dup4(D, obj3.ubo.mView);
+		mult4(obj3.ubo.mView, transT, D);
+
 		glfwPollEvents();
 		updateUniformBuffer();
 		drawFrame();
@@ -1211,8 +1233,46 @@ void shutdownGLFW()
 	glfwTerminate();
 }
 
+int init_hid(libusb_device_handle **hid_dev, unsigned int vendor_id, unsigned int product_id, char *deviceName)
+{
+	int ret;
+
+	*hid_dev = libusb_open_device_with_vid_pid(NULL, vendor_id, product_id);
+	if (!*hid_dev)
+	{
+		printf("USB %s wurde nicht gefunden!\n", deviceName);
+		return -1;
+	}
+	printf("USB %s erkannt!\n", deviceName);
+
+	//libusb_detach_kernel_driver(*hid_dev, HID_INTERFACE);
+
+	ret = libusb_claim_interface(*hid_dev, HID_INTERFACE);
+	if (ret < 0)
+	{
+		printf("Claim %s Interface fehlgeschlagen: %d!\n", deviceName, ret);
+		return -1;
+	}
+	printf("USB %s interface claimed!\n", deviceName);
+
+	return 0;
+}
+
+void close_hid(libusb_device_handle *hid_dev)
+
+{
+
+	libusb_release_interface(hid_dev, HID_INTERFACE);
+
+	//libusb_attach_kernel_driver(hid_dev, HID_INTERFACE);
+
+	libusb_close(hid_dev);
+
+}
+
 int main(int argc, char *argv[])
 {
+	int result;
 	mat4 A, B;
 	printf("=======================\n");
 	printf("***** %s *****\n", appName);
@@ -1239,11 +1299,19 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	result = libusb_init(NULL);
+	assert(result, "libusb_init failed!\n");
+	result = init_hid(&hid_gamecontroller, GAMECONTROLLER_VENDOR_ID, GAMECONTROLLER_PRODUCT_ID, "Game Controller");
+	assert(result, "init_hid failed!\n");
+
 	startGLFW();
 	setupVulkan();
 	mainLoop();
 	shutdownVulkan();
 	shutdownGLFW();
+
+	close_hid(hid_gamecontroller);
+	libusb_exit(NULL);
 
 	return 0;
 }

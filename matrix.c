@@ -52,14 +52,32 @@ void dup4(mat4 M, mat4 N)
 		for (j = 0; j < 4; ++j) M[i][j] = N[i][j];
 }
 
+void getTrans4(mat4 T, float x, float y, float z)
+{
+	identity4(T);
+	T[3][0] = x;
+	T[3][1] = y;
+	T[3][2] = z;
+}
+
+void getRotY4(mat4 M, float phi)
+{
+	float s = sinf(phi);
+	float c = cosf(phi);
+
+	identity4(M);
+	M[0][0] = c; M[2][0] = -s;
+	M[0][2] = s; M[2][2] = c;
+}
+
 void getRotZ4(mat4 M, float phi)
 {
 	float s = sinf(phi);
 	float c = cosf(phi);
 	
 	identity4(M);
-	M[0][0] = c; M[0][1] = s;
-	M[1][0] = -s; M[1][1] = c;
+	M[0][0] = c; M[1][0] = -s;
+	M[0][1] = s; M[1][1] =  c;
 }
 
 void mult4(mat4 M, mat4 a, mat4 b)
@@ -72,19 +90,11 @@ void mult4(mat4 M, mat4 a, mat4 b)
 		}
 }
 
-void getFrustum(mat4 M, float l, float r, float b, float t, float n, float f)
+// Vulkan Projection Matrix for NDC-Tranformation
+void getFrustum(mat4 M, float r, float t, float n, float f)
 {
-	M[0][0] = 2.f * n / (r - l);
-	M[0][1] = M[0][2] = M[0][3] = 0.f;
-
-	M[1][1] = 2.f * n / (t - b);
-	M[1][0] = M[1][2] = M[1][3] = 0.f;
-
-	M[2][0] = (r + l) / (r - l);
-	M[2][1] = (t + b) / (t - b);
-	M[2][2] = -(f + n) / (f - n);
-	M[2][3] = -1.f;
-
-	M[3][2] = -2.f * (f * n) / (f - n);
-	M[3][0] = M[3][1] = M[3][3] = 0.f;
+	M[0][0] = n / r; M[1][0] = 0.0f;   M[2][0] = 0.0f;         M[3][0] = 0.0f;
+	M[0][1] = 0.0f;  M[1][1] = -n / t; M[2][1] = 0.0f;         M[3][1] = 0.0f;
+	M[0][2] = 0.0f;  M[1][2] = 0.0f;   M[2][2] = -f / (f - n); M[3][2] = -f*n / (f - n);
+	M[0][3] = 0.0f;  M[1][3] = 0.0f;   M[2][3] = -1.0f;        M[3][3] = 0.0f;
 }
