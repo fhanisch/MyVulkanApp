@@ -9,11 +9,13 @@ typedef struct {
 
 typedef struct {
 	vec2 pos;
+	vec3 color;
 	vec2 texCoords;
 } Vertex;
 
 typedef struct {
 	vec3 pos;
+	vec3 color;
 	vec2 texCoords;
 } Vertex3D;
 
@@ -23,6 +25,7 @@ typedef struct {
 	uint32_t stride;
 	VkFormat vertexFormat;
 	uint32_t posOffset;
+	uint32_t colorOffset;
 	uint32_t texCoordsOffset;
 } PipelineCreateInfo;
 

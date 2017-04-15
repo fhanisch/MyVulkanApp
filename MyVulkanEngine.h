@@ -1,6 +1,8 @@
 #ifndef MY_VULKAN_ENGINE_H
 #define MY_VULKAN_ENGINE_H
 
+#include <vulkan\vulkan.h>
+
 //globale Variablen im gesamten Programm --> external linkage --> entspricht dem Schlüsselwort 'extern'
 VkInstance instance;
 VkPhysicalDevice *pPhysicalDevices;
@@ -30,6 +32,20 @@ VkDeviceMemory uniformBufferDeviceMemory, uniformBufferDeviceMemory2, uniformBuf
 VkDeviceMemory uniformStagingBufferMemory;
 VkDescriptorPool descriptorPool;
 VkDescriptorSet descriptorSet, descriptorSet2, descriptorSet3;
+VkImage depthImage;
+VkDeviceMemory depthImageMemory;
+VkImageView depthImageView;
+
+//Functions
+void assert(VkResult result, char *msg);
+VkVertexInputBindingDescription getBindingDescription(uint32_t stride);
+VkDescriptorSetLayoutBinding getDescriptorSetLayoutBinding();
+VkVertexInputAttributeDescription getAttributeDescription(uint32_t location, uint32_t offset, VkFormat format);
+uint32_t findMemoryTypeIndex(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+void printStats(VkPhysicalDevice physDevice);
+void createDepthResources(uint32_t width, uint32_t height);
+void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *pImage, VkDeviceMemory *pImageMemory);
+void createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageView *pImageView);
 
 #endif // !MY_VULKAN_ENGINE_H
 

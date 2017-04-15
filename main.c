@@ -35,22 +35,22 @@ static const char appName[] = "MyVulkanApp";
 static const char engineName[] = "MyVulkanEngine";
 
 static Vertex vertices[] = { 
-								{ {-1.0f,  1.0f}, { -1.0f,  1.0f } },
-								{ {-1.0f, -1.0f}, { -1.0f, -1.0f } },
-								{ { 1.0f, -1.0f}, {  1.0f, -1.0f } },
-								{ { 1.0f,  1.0f}, {  1.0f,  1.0f } },
-								{ { 0.0f, -1.0f}, {  0.0f, -1.0f } }
+								{ {-1.0f,  1.0f}, { 1.0f, 0.0f, 1.0f }, { -1.0f,  1.0f } },
+								{ {-1.0f, -1.0f}, { 1.0f, 0.0f, 1.0f }, { -1.0f, -1.0f } },
+								{ { 1.0f, -1.0f}, { 1.0f, 0.0f, 1.0f }, {  1.0f, -1.0f } },
+								{ { 1.0f,  1.0f}, { 1.0f, 0.0f, 1.0f }, {  1.0f,  1.0f } },
+								{ { 0.0f, -1.0f}, { 1.0f, 0.0f, 1.0f }, {  0.0f, -1.0f } }
 							};
 							
 static Vertex3D verticesPlane[] = {
-	{ { -1.0f,  1.0f,  1.0f }, { 0.0f, 0.0f } },
-	{ {  1.0f,  1.0f,  1.0f }, { 1.0f, 1.0f } },
-	{ {  1.0f, -1.0f,  1.0f }, { 1.0f, 0.0f } },	
-	{ { -1.0f, -1.0f,  1.0f }, { 0.0f, 1.0f } },
-	{ { -1.0f,  1.0f, -1.0f }, { 0.0f, 0.0f } },
-	{ {  1.0f,  1.0f, -1.0f }, { 1.0f, 1.0f } },
-	{ {  1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f } },
-	{ { -1.0f, -1.0f, -1.0f }, { 0.0f, 1.0f } }
+	{ { -1.0f,  1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+	{ {  1.0f,  1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
+	{ {  1.0f, -1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },	
+	{ { -1.0f, -1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
+	{ { -1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
+	{ {  1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
+	{ {  1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
+	{ { -1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } }
 };
 
 static uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
@@ -60,155 +60,6 @@ static uint16_t indices_plane[] = { 0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4 };
 static RenderObject obj1;
 static RenderObject obj2;
 static RenderObject obj3;
-
-void assert(VkResult result, char *msg)
-{
-	if (result != VK_SUCCESS)
-	{
-		printf("Error %d: %s\n", result, msg);
-		__debugbreak();
-		exit(-1);
-	}
-}
-
-VkVertexInputBindingDescription getBindingDescription(uint32_t stride)
-{
-	VkVertexInputBindingDescription vertexInputBindingDescription;
-
-	vertexInputBindingDescription.binding = 0;
-	vertexInputBindingDescription.stride = stride;
-	vertexInputBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-	return vertexInputBindingDescription;
-}
-
-VkDescriptorSetLayoutBinding getDescriptorSetLayoutBinding()
-{
-	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding;
-
-	descriptorSetLayoutBinding.binding = 0;
-	descriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	descriptorSetLayoutBinding.descriptorCount = 1;
-	descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	descriptorSetLayoutBinding.pImmutableSamplers = NULL;
-
-	return descriptorSetLayoutBinding;
-}
-
-VkVertexInputAttributeDescription getAttributeDescription(uint32_t location, uint32_t offset, VkFormat format)
-{
-	VkVertexInputAttributeDescription vertexInputAttributeDescription;
-
-	vertexInputAttributeDescription.location = location;
-	vertexInputAttributeDescription.binding = 0;
-	vertexInputAttributeDescription.format = format;
-	vertexInputAttributeDescription.offset = offset;
-
-	return vertexInputAttributeDescription;
-}
-
-uint32_t findMemoryTypeIndex(uint32_t typeFilter, VkMemoryPropertyFlags properties)
-{
-	VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
-	vkGetPhysicalDeviceMemoryProperties(pPhysicalDevices[0], &physicalDeviceMemoryProperties); //ToDo: civ
-
-	for (uint32_t i = 0; i < physicalDeviceMemoryProperties.memoryTypeCount; i++)
-	{
-		if ((typeFilter & (1 << i)) && (physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags & properties) == properties)
-		{
-			return i;
-		}
-	}
-	printf("Found no correct memory type!\n");
-	exit(-1);
-}
-
-void printStats(VkPhysicalDevice physDevice)
-{
-	VkPhysicalDeviceProperties properties;
-	VkPhysicalDeviceFeatures features;
-	VkPhysicalDeviceMemoryProperties memProp;
-	uint32_t queueFamilyCount;
-	VkQueueFamilyProperties *pQueueFamilyProperties;
-	uint32_t width, height, depth;
-	VkSurfaceCapabilitiesKHR surfaceCapabilities;
-	uint32_t formatsCount;
-	VkSurfaceFormatKHR *pSurfaceFormat;
-	uint32_t presentationModeCount;
-	VkPresentModeKHR *pPresentModes;
-	
-	vkGetPhysicalDeviceProperties(physDevice, &properties);
-	vkGetPhysicalDeviceFeatures(physDevice, &features);
-	vkGetPhysicalDeviceMemoryProperties(physDevice, &memProp);
-	vkGetPhysicalDeviceQueueFamilyProperties(physDevice, &queueFamilyCount, NULL);
-	pQueueFamilyProperties = malloc(sizeof(VkQueueFamilyProperties) * queueFamilyCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(physDevice, &queueFamilyCount, pQueueFamilyProperties);
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physDevice, surface, &surfaceCapabilities);
-
-	printf("ApiVersion:              %u.%u.%u\n", VK_VERSION_MAJOR(properties.apiVersion), VK_VERSION_MINOR(properties.apiVersion), VK_VERSION_PATCH(properties.apiVersion));
-	printf("DriverVersion:           %u\n", properties.driverVersion);
-	printf("VendorID:                %u\n", properties.vendorID);
-	printf("DeviceID:                %u\n", properties.deviceID);
-	printf("DeviceType:              %u\n", properties.deviceType);
-	printf("DeviceName:              %s\n", properties.deviceName);
-	printf("discreteQueuePriorities: %u\n", properties.limits.discreteQueuePriorities);
-	//printf("%u\n", properties.pipelineCacheUUID);
-	//properties.limits
-	//properties.sparseProperties
-	printf("Geometry Shader:       %d\n", features.geometryShader);
-	printf("Tessellation Shader:   %d\n", features.tessellationShader);
-	printf("Anzahl Queue-Familien: %u\n", queueFamilyCount);
-	for (uint32_t i = 0; i < queueFamilyCount; i++)
-	{
-		printf("\nQueue Family Number # %u\n", i);
-		printf("VK_QUEUE_GRAPHICS_BIT:       %d\n", (pQueueFamilyProperties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0);
-		printf("VK_QUEUE_COMPUTE_BIT:        %d\n", (pQueueFamilyProperties[i].queueFlags & VK_QUEUE_COMPUTE_BIT) != 0);
-		printf("VK_QUEUE_TRANSFER_BIT:       %d\n", (pQueueFamilyProperties[i].queueFlags & VK_QUEUE_TRANSFER_BIT) != 0);
-		printf("VK_QUEUE_SPARSE_BINDING_BIT: %d\n", (pQueueFamilyProperties[i].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT) != 0);
-		printf("Queue Count:                 %d\n", pQueueFamilyProperties[i].queueCount);
-		printf("Timestamp Valid Bits:        %d\n", pQueueFamilyProperties[i].timestampValidBits);
-		width = pQueueFamilyProperties[i].minImageTransferGranularity.width;
-		height = pQueueFamilyProperties[i].minImageTransferGranularity.height;
-		depth = pQueueFamilyProperties[i].minImageTransferGranularity.depth;
-		printf("Min Image Timestamp Granularity: %u, %u, %u\n", width, height, depth);
-	}
-	printf("\n");
-
-	printf("Surface Capabilities\n");
-	printf("\tminImageCount:           %u\n", surfaceCapabilities.minImageCount);
-	printf("\tmaxImageCount:           %u\n", surfaceCapabilities.maxImageCount);
-	printf("\tcurrentExtent:           %u/%u\n", surfaceCapabilities.currentExtent.width, surfaceCapabilities.currentExtent.height);
-	printf("\tminImageExtent:          %u/%u\n", surfaceCapabilities.minImageExtent.width, surfaceCapabilities.minImageExtent.height);
-	printf("\tmaxImageExtent:          %u/%u\n", surfaceCapabilities.maxImageExtent.width, surfaceCapabilities.maxImageExtent.height);
-	printf("\tmaxImageArrayLayers:     %u\n", surfaceCapabilities.maxImageArrayLayers);
-	printf("\tsupportedTransforms:     %u\n", surfaceCapabilities.supportedTransforms);
-	printf("\tcurrentTransform:        %u\n", surfaceCapabilities.currentTransform);
-	printf("\tsupportedCompositeAlpha: %u\n", surfaceCapabilities.supportedCompositeAlpha);
-	printf("\tsupportedUsageFlags:     %u\n", surfaceCapabilities.supportedUsageFlags);
-
-	vkGetPhysicalDeviceSurfaceFormatsKHR(physDevice, surface, &formatsCount, NULL);
-	printf("\nAnzahl Formate: %u\n", formatsCount);
-	pSurfaceFormat = malloc(sizeof(VkSurfaceFormatKHR) * formatsCount);
-	vkGetPhysicalDeviceSurfaceFormatsKHR(physDevice, surface, &formatsCount, pSurfaceFormat);
-	for (uint32_t i = 0; i < formatsCount; i++)
-	{
-		printf("Format:    %u\n", pSurfaceFormat[i].format);
-		printf("ColorSpace: %u\n", pSurfaceFormat[i].colorSpace);
-	}
-
-	vkGetPhysicalDeviceSurfacePresentModesKHR(physDevice, surface, &presentationModeCount, NULL);
-	printf("\nAnzahl Presentation Modes: %u\n", presentationModeCount);
-	pPresentModes = malloc(sizeof(VkPresentModeKHR) * presentationModeCount);
-	vkGetPhysicalDeviceSurfacePresentModesKHR(physDevice, surface, &presentationModeCount, pPresentModes);
-	for (uint32_t i = 0; i < presentationModeCount; i++)
-	{
-		printf("\tSupported presentation mode: %u\n", pPresentModes[i]);
-	}
-
-	free(pQueueFamilyProperties);
-	free(pSurfaceFormat);
-	free(pPresentModes);
-}
 
 void startGLFW()
 {
@@ -418,11 +269,6 @@ void createSwapchain()
 	assert(result, "vkCreateSwapchainKHR failed!\n");
 }
 
-void createImage()
-{
-	VkImageCreateInfo imageCreateInfo;
-}
-
 void createImageViews()
 {
 	VkResult result;
@@ -521,7 +367,10 @@ void createRenderPass()
 {
 	VkResult result;
 	VkAttachmentDescription attachmentDescription;
+	VkAttachmentDescription depthAttachment;
+	VkAttachmentDescription attachments[2];
 	VkAttachmentReference attachmentReference;
+	VkAttachmentReference depthAttachmentRef;
 	VkSubpassDescription subpathDescription;
 	VkSubpassDependency subpassDependency;
 	VkRenderPassCreateInfo renderPathCreateInfo;
@@ -536,8 +385,21 @@ void createRenderPass()
 	attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+	depthAttachment.flags = 0;
+	depthAttachment.format = VK_FORMAT_D32_SFLOAT;
+	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
 	attachmentReference.attachment = 0;
 	attachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	depthAttachmentRef.attachment = 1;
+	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	subpathDescription.flags = 0;
 	subpathDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -546,7 +408,7 @@ void createRenderPass()
 	subpathDescription.colorAttachmentCount = 1;
 	subpathDescription.pColorAttachments = &attachmentReference;
 	subpathDescription.pResolveAttachments = NULL;
-	subpathDescription.pDepthStencilAttachment = NULL;
+	subpathDescription.pDepthStencilAttachment = &depthAttachmentRef;
 	subpathDescription.preserveAttachmentCount = 0;
 	subpathDescription.pPreserveAttachments = NULL;
 
@@ -558,11 +420,13 @@ void createRenderPass()
 	subpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	subpassDependency.dependencyFlags = 0;
 
+	attachments[0] = attachmentDescription;
+	attachments[1] = depthAttachment;
 	renderPathCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 	renderPathCreateInfo.pNext = NULL;
 	renderPathCreateInfo.flags = 0;
-	renderPathCreateInfo.attachmentCount = 1;
-	renderPathCreateInfo.pAttachments = &attachmentDescription;
+	renderPathCreateInfo.attachmentCount = 2;
+	renderPathCreateInfo.pAttachments = attachments;
 	renderPathCreateInfo.subpassCount = 1;
 	renderPathCreateInfo.pSubpasses = &subpathDescription;
 	renderPathCreateInfo.dependencyCount = 1;
@@ -578,7 +442,7 @@ void createGraphicsPipeline(PipelineCreateInfo *pPipelineCreateInfo, VkPipeline 
 	VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert, shaderStageCreateInfoFrag;
 	VkPipelineShaderStageCreateInfo shaderStages[2];
 	VkVertexInputBindingDescription vertexInputBindingDescription;
-	VkVertexInputAttributeDescription vertexInputAttributeDescription[2];
+	VkVertexInputAttributeDescription vertexInputAttributeDescription[3];
 	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo;
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo;
 	VkViewport viewport;
@@ -589,6 +453,7 @@ void createGraphicsPipeline(PipelineCreateInfo *pPipelineCreateInfo, VkPipeline 
 	VkPipelineColorBlendAttachmentState colorBlendAttachment;
 	VkPipelineColorBlendStateCreateInfo colorBlendCreateInfo;	
 	VkGraphicsPipelineCreateInfo pipelineCreateInfo;
+	VkPipelineDepthStencilStateCreateInfo depthStencilStateInfo;
 
 	createShaderModule(pPipelineCreateInfo->pVertShaderFileName, &vertexShaderModule);
 	createShaderModule(pPipelineCreateInfo->pFragShaderFileName, &fragmentShaderModule);
@@ -614,14 +479,15 @@ void createGraphicsPipeline(PipelineCreateInfo *pPipelineCreateInfo, VkPipeline 
 
 	vertexInputBindingDescription = getBindingDescription(pPipelineCreateInfo->stride);
 	vertexInputAttributeDescription[0] = getAttributeDescription(0, pPipelineCreateInfo->posOffset , pPipelineCreateInfo->vertexFormat);
-	vertexInputAttributeDescription[1] = getAttributeDescription(1, pPipelineCreateInfo->texCoordsOffset, pPipelineCreateInfo->vertexFormat);
+	vertexInputAttributeDescription[1] = getAttributeDescription(1, pPipelineCreateInfo->colorOffset, VK_FORMAT_R32G32B32_SFLOAT);
+	vertexInputAttributeDescription[2] = getAttributeDescription(2, pPipelineCreateInfo->texCoordsOffset, VK_FORMAT_R32G32_SFLOAT);
 
 	vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	vertexInputCreateInfo.pNext = NULL;
 	vertexInputCreateInfo.flags = 0;
 	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
 	vertexInputCreateInfo.pVertexBindingDescriptions = &vertexInputBindingDescription;
-	vertexInputCreateInfo.vertexAttributeDescriptionCount = 2;
+	vertexInputCreateInfo.vertexAttributeDescriptionCount = 3;
 	vertexInputCreateInfo.pVertexAttributeDescriptions = vertexInputAttributeDescription;
 
 	inputAssemblyCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -695,6 +561,18 @@ void createGraphicsPipeline(PipelineCreateInfo *pPipelineCreateInfo, VkPipeline 
 	colorBlendCreateInfo.blendConstants[2] = 0.0f;
 	colorBlendCreateInfo.blendConstants[3] = 0.0f;
 
+	memset(&depthStencilStateInfo, 0, sizeof(VkPipelineDepthStencilStateCreateInfo));
+	depthStencilStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencilStateInfo.pNext = NULL;
+	depthStencilStateInfo.flags = 0;
+	depthStencilStateInfo.depthTestEnable = VK_TRUE;
+	depthStencilStateInfo.depthWriteEnable = VK_TRUE;
+	depthStencilStateInfo.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencilStateInfo.depthBoundsTestEnable = VK_FALSE;
+	depthStencilStateInfo.stencilTestEnable = VK_FALSE;
+	depthStencilStateInfo.minDepthBounds = 0.0f;
+	depthStencilStateInfo.maxDepthBounds = 1.0f;
+
 	pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineCreateInfo.pNext = NULL;
 	pipelineCreateInfo.flags = 0;
@@ -706,7 +584,7 @@ void createGraphicsPipeline(PipelineCreateInfo *pPipelineCreateInfo, VkPipeline 
 	pipelineCreateInfo.pViewportState = &viewportCreateInfo;
 	pipelineCreateInfo.pRasterizationState = &rasterizationCreateInfo;
 	pipelineCreateInfo.pMultisampleState = &multisampleCreateInfo;
-	pipelineCreateInfo.pDepthStencilState = NULL;
+	pipelineCreateInfo.pDepthStencilState = &depthStencilStateInfo;
 	pipelineCreateInfo.pColorBlendState = &colorBlendCreateInfo;
 	pipelineCreateInfo.pDynamicState = NULL;
 	pipelineCreateInfo.layout = pipelineLayout;
@@ -723,16 +601,19 @@ void createFramebuffer()
 {
 	VkResult result;
 	VkFramebufferCreateInfo framebufferCreateInfo;
+	VkImageView attachments[2];
 
 	pFramebuffer = malloc(sizeof(VkFramebuffer) * imagesInSwapChainCount);
 	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
 	{
+		attachments[0] = pImageViews[i];
+		attachments[1] = depthImageView;
 		framebufferCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		framebufferCreateInfo.pNext = NULL;
 		framebufferCreateInfo.flags = 0;
 		framebufferCreateInfo.renderPass = renderPath;
-		framebufferCreateInfo.attachmentCount = 1;
-		framebufferCreateInfo.pAttachments = &(pImageViews[i]);
+		framebufferCreateInfo.attachmentCount = 2;
+		framebufferCreateInfo.pAttachments = attachments;
 		framebufferCreateInfo.width = wndWidth;
 		framebufferCreateInfo.height = wndHeight;
 		framebufferCreateInfo.layers = 1;
@@ -740,13 +621,6 @@ void createFramebuffer()
 		result = vkCreateFramebuffer(device, &framebufferCreateInfo, NULL, &(pFramebuffer[i]));
 		assert(result, "vkCreateFramebuffer failed!\n");
 	}
-}
-
-void createDepthResources()
-{
-	VkFormat depthFormat;
-
-	depthFormat = VK_FORMAT_D32_SFLOAT;
 }
 
 void createBuffer(VkBuffer *pBuffer, VkDeviceSize bufferSize, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkDeviceMemory *pMemory)
@@ -986,10 +860,14 @@ void createCommandBuffer()
 	VkCommandBufferAllocateInfo commandBufferAllocateInfo;
 	VkCommandBufferBeginInfo commandBufferBeginInfo;
 	VkRenderPassBeginInfo renderPassBeginInfo;
-	VkClearValue clearValue = { 0.0f, 0.0f, 1.0f, 1.0f };
+	VkClearValue clearValues[2];
+	VkClearValue clearColor = { 0.0f, 0.0f, 1.0f, 1.0f };
+	VkClearValue clearDepth = { 1.0f, 0 };
 	VkDeviceSize offsets[] = { 0 };
 	VkDeviceSize offsets2[] = { sizeof(vertices) };
 
+	clearValues[0] = clearColor;
+	clearValues[1] = clearDepth;
 	commandBufferAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	commandBufferAllocateInfo.pNext = NULL;
 	commandBufferAllocateInfo.commandPool = commandPool;
@@ -1018,8 +896,8 @@ void createCommandBuffer()
 		renderPassBeginInfo.renderArea.offset.y = 0;
 		renderPassBeginInfo.renderArea.extent.width = wndWidth;
 		renderPassBeginInfo.renderArea.extent.height = wndHeight;
-		renderPassBeginInfo.clearValueCount = 1;
-		renderPassBeginInfo.pClearValues = &clearValue;
+		renderPassBeginInfo.clearValueCount = 2;
+		renderPassBeginInfo.pClearValues = clearValues;
 
 		vkCmdBeginRenderPass(pCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 		/*
@@ -1089,13 +967,13 @@ void setupVulkan()
 	createImageViews();
 	createDescriptorSetLayout();
 	createPipelineLayout();
+	createDepthResources(wndWidth, wndHeight);
 	createRenderPass();
 	createGraphicsPipeline(&createInfo1, &pipeline1);
 	createGraphicsPipeline(&createInfo2, &pipeline2);
 	createGraphicsPipeline(&createInfo3, &pipeline3);
 	createFramebuffer();
 	createCommandPool();
-	createDepthResources();
 	createVertexBuffer();	
 	createIndexBuffer();
 	createUniformStagingBuffer();
@@ -1157,33 +1035,34 @@ void mainLoop()
 	float lStickX, lStickY, rStickX, rStickY;
 
 	while (!glfwWindowShouldClose(pWindow) && !quit)
-	{		
-		result = libusb_bulk_transfer(hid_gamecontroller, ENDPOINT_ADDRESS, gamectrlbuf, 8, &transferred, 1);
-
+	{				
+		result = libusb_bulk_transfer(hid_gamecontroller, ENDPOINT_ADDRESS, gamectrlbuf, 8, &transferred, 1); // --> Performance checken!!! ggf. im Thread aufrufen
 		if (result == 0 || result == -7)
 		{
 			lStickX = -((float)gamectrlbuf[0] / 255.0f * 2.0f - 1.0f) / 10.0f;
 			lStickY = -((float)gamectrlbuf[1] / 255.0f * 2.0f - 1.0f) / 10.0f;
-			rStickX = -((float)gamectrlbuf[2] / 255.0f * 2.0f - 1.0f) / 5.0f;
-			rStickY = -((float)gamectrlbuf[3] / 255.0f * 2.0f - 1.0f) / 2.0f;			
+			rStickX = -((float)gamectrlbuf[2] / 255.0f * 2.0f - 1.0f) / 10.0f;
+			rStickY = -((float)gamectrlbuf[3] / 255.0f * 2.0f - 1.0f) / 2.0f;
 			getRotY4(rotY, rStickX);
 			getRotZ4(rotZ, rStickY);
 			getTrans4(transT, lStickX, 0.0f, lStickY);
-			//printf("%0.2f\n", -((float)gamectrlbuf[1] / 255.0f * 2.0f - 1.0f));
+
+			dup4(D, obj2.ubo.mModel);
+			mult4(obj2.ubo.mModel, rotZ, D);
+			dup4(D, obj3.ubo.mView);
+			mult4(obj3.ubo.mView, rotY, D);
+			dup4(D, obj3.ubo.mView);
+			mult4(obj3.ubo.mView, transT, D);
+
+			//printf("%u\n", gamectrlbuf[2]);
+			//printf("%0.2f\n", -((float)gamectrlbuf[2] / 255.0f * 2.0f - 1.0f));
 		}
 		else
 		{
 			printf("Transfer Error: %d\n", result);
 			quit = TRUE;
 		}
-
-		dup4(D, obj2.ubo.mModel);
-		mult4(obj2.ubo.mModel, rotZ, D);
-		dup4(D, obj3.ubo.mView);
-		mult4(obj3.ubo.mView, rotY, D);
-		dup4(D, obj3.ubo.mView);
-		mult4(obj3.ubo.mView, transT, D);
-
+		
 		glfwPollEvents();
 		updateUniformBuffer();
 		drawFrame();
