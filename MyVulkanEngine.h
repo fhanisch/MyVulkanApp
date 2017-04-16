@@ -38,6 +38,13 @@ VkImageView depthImageView;
 
 //Functions
 void assert(VkResult result, char *msg);
+void createInstance(const char *appName, const char **glfwExtensions, uint32_t glfwExtensionsCount);
+void getPhysicalDevices();
+void createLogicalDevice();
+void createSwapchain(uint32_t width, uint32_t height);
+void createImageViews();
+void createRenderPass();
+int loadShader(char **shaderStr, char *fileName);
 VkVertexInputBindingDescription getBindingDescription(uint32_t stride);
 VkDescriptorSetLayoutBinding getDescriptorSetLayoutBinding();
 VkVertexInputAttributeDescription getAttributeDescription(uint32_t location, uint32_t offset, VkFormat format);
@@ -46,6 +53,7 @@ void printStats(VkPhysicalDevice physDevice);
 void createDepthResources(uint32_t width, uint32_t height);
 void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *pImage, VkDeviceMemory *pImageMemory);
 void createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageView *pImageView);
+void transitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
 
 #endif // !MY_VULKAN_ENGINE_H
 
