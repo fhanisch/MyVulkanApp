@@ -4,18 +4,44 @@
 PipelineCreateInfo createInfo1 = {
 	.pVertShaderFileName = "vs_generic.spv",
 	.pFragShaderFileName = "fs_powermeter.spv",
-	sizeof(Vertex), VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex,pos), offsetof(Vertex, color), offsetof(Vertex, texCoords)
+	.stride = sizeof(Vertex),
+	.vertexFormat = VK_FORMAT_R32G32_SFLOAT,
+	.posOffset = offsetof(Vertex,pos),
+	.colorOffset = offsetof(Vertex, color),
+	.texCoordsOffset = offsetof(Vertex, texCoords),
+	.normalOffset = 0
 	};
 PipelineCreateInfo createInfo2 = {
 	.pVertShaderFileName = "vs_generic.spv",
 	.pFragShaderFileName = "fs_generic.spv",
-	sizeof(Vertex), VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex,pos), offsetof(Vertex, color), offsetof(Vertex, texCoords)
+	.stride = sizeof(Vertex),
+	.vertexFormat = VK_FORMAT_R32G32_SFLOAT,
+	.posOffset = offsetof(Vertex,pos),
+	.colorOffset = offsetof(Vertex, color),
+	.texCoordsOffset = offsetof(Vertex, texCoords),
+	.normalOffset = 0
 	};
 PipelineCreateInfo createInfo3 = {
 	.pVertShaderFileName = "vs_generic3D.spv",
 	.pFragShaderFileName = "fs_generic.spv",
-	sizeof(Vertex3D), VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex3D,pos), offsetof(Vertex3D, color), offsetof(Vertex3D, texCoords)
+	.stride = sizeof(Vertex3D),
+	.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+	.posOffset = offsetof(Vertex3D,pos),
+	.colorOffset = offsetof(Vertex3D, color),
+	.texCoordsOffset = offsetof(Vertex3D, texCoords),
+	.normalOffset = 0
 	};
+
+PipelineCreateInfo quadCreateInfo = {
+	.pVertShaderFileName = "vs_adsPerFragment.spv",
+	.pFragShaderFileName = "fs_adsPerFragment.spv",
+	.stride = sizeof(Vertex3D),
+	.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+	.posOffset = offsetof(Vertex3D,pos),
+	.colorOffset = offsetof(Vertex3D, color),
+	.texCoordsOffset = offsetof(Vertex3D, texCoords),
+	.normalOffset = offsetof(Vertex3D, normal)
+};
 
 #endif // !RENDER_SCENE_H
 

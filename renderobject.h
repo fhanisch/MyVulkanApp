@@ -17,6 +17,7 @@ typedef struct {
 	vec3 pos;
 	vec3 color;
 	vec2 texCoords;
+	vec3 normal;
 } Vertex3D;
 
 typedef struct {
@@ -27,6 +28,7 @@ typedef struct {
 	uint32_t posOffset;
 	uint32_t colorOffset;
 	uint32_t texCoordsOffset;
+	uint32_t normalOffset;
 } PipelineCreateInfo;
 
 typedef struct {

@@ -46,7 +46,7 @@ void createImageViews();
 void createRenderPass();
 int loadShader(char **shaderStr, char *fileName);
 VkVertexInputBindingDescription getBindingDescription(uint32_t stride);
-VkDescriptorSetLayoutBinding getDescriptorSetLayoutBinding();
+VkDescriptorSetLayoutBinding getDescriptorSetLayoutBinding(VkShaderStageFlags stageFlags);
 VkVertexInputAttributeDescription getAttributeDescription(uint32_t location, uint32_t offset, VkFormat format);
 uint32_t findMemoryTypeIndex(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 void printStats(VkPhysicalDevice physDevice);
@@ -54,6 +54,7 @@ void createDepthResources(uint32_t width, uint32_t height);
 void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *pImage, VkDeviceMemory *pImageMemory);
 void createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageView *pImageView);
 void transitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);
+void shutdownVulkan();
 
 #endif // !MY_VULKAN_ENGINE_H
 

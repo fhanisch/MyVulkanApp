@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <libusb-1.0\libusb.h>
 //#define VK_USE_PLATFORM_WIN32_KHR --> GLFW erledigt das
 #define GLFW_INCLUDE_VULKAN
@@ -41,14 +42,14 @@ static Vertex vertices[] = {
 							};
 							
 static Vertex3D verticesPlane[] = {
-	{ { -1.0f,  1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ {  1.0f,  1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ {  1.0f, -1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f } },	
-	{ { -1.0f, -1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } },
-	{ { -1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f } },
-	{ {  1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f } },
-	{ {  1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
-	{ { -1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f } }
+	{ { -1.0f,  1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f,  1.0f } },
+	{ {  1.0f,  1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 0.0f,  1.0f } },
+	{ {  1.0f, -1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f }, { 0.0f, 0.0f,  1.0f } },	
+	{ { -1.0f, -1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f }, { 0.0f, 0.0f,  1.0f } },
+	{ { -1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f, -1.0f } },
+	{ {  1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 0.0f, -1.0f } },
+	{ {  1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f }, { 0.0f, 0.0f, -1.0f } },
+	{ { -1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f }, { 0.0f, 0.0f, -1.0f } }
 };
 
 static uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
@@ -109,7 +110,7 @@ void createDescriptorSetLayout()
 	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding;
 	VkDescriptorSetLayoutCreateInfo layoutInfo;
 
-	descriptorSetLayoutBinding = getDescriptorSetLayoutBinding();
+	descriptorSetLayoutBinding = getDescriptorSetLayoutBinding(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	layoutInfo.pNext = NULL;
@@ -147,7 +148,7 @@ void createGraphicsPipeline(PipelineCreateInfo *pPipelineCreateInfo, VkPipeline 
 	VkPipelineShaderStageCreateInfo shaderStageCreateInfoVert, shaderStageCreateInfoFrag;
 	VkPipelineShaderStageCreateInfo shaderStages[2];
 	VkVertexInputBindingDescription vertexInputBindingDescription;
-	VkVertexInputAttributeDescription vertexInputAttributeDescription[3];
+	VkVertexInputAttributeDescription vertexInputAttributeDescription[4];
 	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo;
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo;
 	VkViewport viewport;
@@ -186,13 +187,14 @@ void createGraphicsPipeline(PipelineCreateInfo *pPipelineCreateInfo, VkPipeline 
 	vertexInputAttributeDescription[0] = getAttributeDescription(0, pPipelineCreateInfo->posOffset , pPipelineCreateInfo->vertexFormat);
 	vertexInputAttributeDescription[1] = getAttributeDescription(1, pPipelineCreateInfo->colorOffset, VK_FORMAT_R32G32B32_SFLOAT);
 	vertexInputAttributeDescription[2] = getAttributeDescription(2, pPipelineCreateInfo->texCoordsOffset, VK_FORMAT_R32G32_SFLOAT);
+	vertexInputAttributeDescription[3] = getAttributeDescription(3, pPipelineCreateInfo->normalOffset, VK_FORMAT_R32G32B32_SFLOAT);
 
 	vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	vertexInputCreateInfo.pNext = NULL;
 	vertexInputCreateInfo.flags = 0;
 	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
 	vertexInputCreateInfo.pVertexBindingDescriptions = &vertexInputBindingDescription;
-	vertexInputCreateInfo.vertexAttributeDescriptionCount = 3;
+	vertexInputCreateInfo.vertexAttributeDescriptionCount = 4;
 	vertexInputCreateInfo.pVertexAttributeDescriptions = vertexInputAttributeDescription;
 
 	inputAssemblyCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -605,26 +607,27 @@ void createCommandBuffer()
 		renderPassBeginInfo.pClearValues = clearValues;
 
 		vkCmdBeginRenderPass(pCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-		/*
-		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline1);
+		
 		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets);
-		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
-		//vkCmdDraw(pCommandBuffers[i], 3, 1, 0, 0);
-		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 , 1, 0, 0, 0);
-
+		/*
 		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline2);
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices), VK_INDEX_TYPE_UINT16);
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet2, 0, NULL);
 		//vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 - 3, 1, 0, 0, 0);
 		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices2) / 2, 1, 0, 0, 0);
+
+		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline1);		
+		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
+		//vkCmdDraw(pCommandBuffers[i], 3, 1, 0, 0);
+		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 , 1, 0, 0, 0);
 		*/
 		
 		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline3);
 		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets2);
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices) + sizeof(indices2), VK_INDEX_TYPE_UINT16);
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet3, 0, NULL);		
-		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices_plane) / 2, 1, 0, 0, 0);	
+		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices_plane) / 2, 1, 0, 0, 0);
 		
 		vkCmdEndRenderPass(pCommandBuffers[i]);
 
@@ -681,7 +684,8 @@ void setupVulkan()
 	createRenderPass();
 	createGraphicsPipeline(&createInfo1, &pipeline1);
 	createGraphicsPipeline(&createInfo2, &pipeline2);
-	createGraphicsPipeline(&createInfo3, &pipeline3);
+	//createGraphicsPipeline(&createInfo3, &pipeline3);
+	createGraphicsPipeline(&quadCreateInfo, &pipeline3);
 	createFramebuffer();	
 	createVertexBuffer();	
 	createIndexBuffer();
@@ -737,12 +741,15 @@ void drawFrame()
 void mainLoop()
 {
 	int result;
+	clock_t start_t, end_t, delta_t;
+	uint32_t framecount = 0;
 	boolean quit = FALSE;
 	int transferred;
 	unsigned char gamectrlbuf[8];
 	mat4 rotY, rotZ, D, transT;
 	float lStickX, lStickY, rStickX, rStickY;
 
+	start_t = clock(); //FPS
 	while (!glfwWindowShouldClose(pWindow) && !quit)
 	{				
 		result = libusb_bulk_transfer(hid_gamecontroller, ENDPOINT_ADDRESS, gamectrlbuf, 8, &transferred, 1); // --> Performance checken!!! ggf. im Thread aufrufen
@@ -771,48 +778,22 @@ void mainLoop()
 			printf("Transfer Error: %d\n", result);
 			quit = TRUE;
 		}
+
+		framecount++;
+		end_t = clock();
+		delta_t = end_t - start_t;
+
+		if (delta_t >= CLOCKS_PER_SEC)
+		{
+			printf("FPS = %u\n", framecount);
+			start_t = clock();
+			framecount = 0;
+		}
 		
 		glfwPollEvents();
 		updateUniformBuffer();
 		drawFrame();
 	}
-}
-
-void shutdownVulkan()
-{
-	vkDeviceWaitIdle(device);
-
-	vkDestroyDescriptorPool(device, descriptorPool, NULL);
-	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, NULL);
-	vkFreeMemory(device, uniformBufferDeviceMemory, NULL);
-	vkFreeMemory(device, vertexBufferDeviceMemory, NULL);
-	vkDestroyBuffer(device, uniformBuffer, NULL);
-	vkDestroyBuffer(device, vertexBuffer, NULL);
-	vkDestroySemaphore(device, semaphoreImageAvailable, NULL);
-	vkDestroySemaphore(device, semaphoreRenderingDone, NULL);
-	vkFreeCommandBuffers(device, commandPool, imagesInSwapChainCount, pCommandBuffers);
-	free(pCommandBuffers);
-	vkDestroyCommandPool(device, commandPool, NULL);
-	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
-	{
-		vkDestroyFramebuffer(device, pFramebuffer[i], NULL);
-	}
-	free(pFramebuffer);
-	vkDestroyPipeline(device, pipeline1, NULL);
-	vkDestroyRenderPass(device, renderPath, NULL);
-	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
-	{
-		vkDestroyImageView(device, pImageViews[i], NULL);
-	}
-	free(pImageViews);
-	vkDestroyPipelineLayout(device, pipelineLayout, NULL);
-	vkDestroyShaderModule(device, vertexShaderModule, NULL);
-	vkDestroyShaderModule(device, fragmentShaderModule, NULL);
-	vkDestroySwapchainKHR(device, swapchain, NULL);
-	vkDestroyDevice(device, NULL);	
-	vkDestroySurfaceKHR(instance, surface, NULL);
-	free(pPhysicalDevices);
-	vkDestroyInstance(instance, NULL);
 }
 
 void shutdownGLFW()

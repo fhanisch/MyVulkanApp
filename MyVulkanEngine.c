@@ -317,14 +317,14 @@ VkVertexInputBindingDescription getBindingDescription(uint32_t stride)
 	return vertexInputBindingDescription;
 }
 
-VkDescriptorSetLayoutBinding getDescriptorSetLayoutBinding()
+VkDescriptorSetLayoutBinding getDescriptorSetLayoutBinding(VkShaderStageFlags stageFlags)
 {
 	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding;
 
 	descriptorSetLayoutBinding.binding = 0;
 	descriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	descriptorSetLayoutBinding.descriptorCount = 1;
-	descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	descriptorSetLayoutBinding.stageFlags = stageFlags;
 	descriptorSetLayoutBinding.pImmutableSamplers = NULL;
 
 	return descriptorSetLayoutBinding;
@@ -578,4 +578,41 @@ void transitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout
 	vkQueueWaitIdle(queue);
 
 	vkFreeCommandBuffers(device, commandPool, 1, &cmdBuffer);
+}
+
+void shutdownVulkan()
+{
+	vkDeviceWaitIdle(device);
+
+	vkDestroyDescriptorPool(device, descriptorPool, NULL);
+	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, NULL);
+	vkFreeMemory(device, uniformBufferDeviceMemory, NULL);
+	vkFreeMemory(device, vertexBufferDeviceMemory, NULL);
+	vkDestroyBuffer(device, uniformBuffer, NULL);
+	vkDestroyBuffer(device, vertexBuffer, NULL);
+	vkDestroySemaphore(device, semaphoreImageAvailable, NULL);
+	vkDestroySemaphore(device, semaphoreRenderingDone, NULL);
+	vkFreeCommandBuffers(device, commandPool, imagesInSwapChainCount, pCommandBuffers);
+	free(pCommandBuffers);
+	vkDestroyCommandPool(device, commandPool, NULL);
+	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
+	{
+		vkDestroyFramebuffer(device, pFramebuffer[i], NULL);
+	}
+	free(pFramebuffer);
+	vkDestroyPipeline(device, pipeline1, NULL);
+	vkDestroyRenderPass(device, renderPath, NULL);
+	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
+	{
+		vkDestroyImageView(device, pImageViews[i], NULL);
+	}
+	free(pImageViews);
+	vkDestroyPipelineLayout(device, pipelineLayout, NULL);
+	vkDestroyShaderModule(device, vertexShaderModule, NULL);
+	vkDestroyShaderModule(device, fragmentShaderModule, NULL);
+	vkDestroySwapchainKHR(device, swapchain, NULL);
+	vkDestroyDevice(device, NULL);
+	vkDestroySurfaceKHR(instance, surface, NULL);
+	free(pPhysicalDevices);
+	vkDestroyInstance(instance, NULL);
 }
