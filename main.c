@@ -46,15 +46,30 @@ static Vertex3D verticesPlane[] = {
 	{ {  1.0f,  1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 0.0f,  1.0f } },
 	{ {  1.0f, -1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f }, { 0.0f, 0.0f,  1.0f } },	
 	{ { -1.0f, -1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f }, { 0.0f, 0.0f,  1.0f } },
+
+	{ {  1.0f, -1.0f,  1.0f }, { 1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f }, { 1.0f, 0.0f,  0.0f } },
+	{ {  1.0f,  1.0f,  1.0f }, { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f }, { 1.0f, 0.0f,  0.0f } },
+	{ {  1.0f,  1.0f, -1.0f }, { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 0.0f,  0.0f } },
+	{ {  1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f,  0.0f } },
+
 	{ { -1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f, -1.0f } },
 	{ {  1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 0.0f, -1.0f } },
 	{ {  1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f }, { 0.0f, 0.0f, -1.0f } },
-	{ { -1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f }, { 0.0f, 0.0f, -1.0f } }
+	{ { -1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f }, { 0.0f, 0.0f, -1.0f } },
+
+	{ { -1.0f, -1.0f,  1.0f }, { 1.0f, 0.0f, 1.0f }, { 0.0f, 0.0f }, { 1.0f, 0.0f,  0.0f } },
+	{ { -1.0f,  1.0f,  1.0f }, { 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 0.0f,  0.0f } },
+	{ { -1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f, 1.0f }, { 1.0f, 0.0f }, { 1.0f, 0.0f,  0.0f } },
+	{ { -1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f,  0.0f } },
 };
 
 static uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
 static uint16_t indices2[] = { 0, 4, 3 };
-static uint16_t indices_plane[] = { 0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4 };
+static uint16_t indices_plane[] = { 0, 1, 2, 2, 3, 0,
+									4, 5, 6, 6, 7, 4,
+									8, 9, 10, 10, 11, 8,
+									12, 13, 14, 14, 15, 12
+								};
 
 static RenderObject obj1;
 static RenderObject obj2;
@@ -621,8 +636,7 @@ void createCommandBuffer()
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
 		//vkCmdDraw(pCommandBuffers[i], 3, 1, 0, 0);
 		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 , 1, 0, 0, 0);
-		*/
-		
+		*/	
 		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline3);
 		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets2);
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices) + sizeof(indices2), VK_INDEX_TYPE_UINT16);
