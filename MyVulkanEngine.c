@@ -49,7 +49,7 @@ void createInstance(const char *appName, const char **glfwExtensions, uint32_t g
 		printf("implementationVersion: %u\n", pLayers[i].implementationVersion);
 		printf("description:           %s\n", pLayers[i].description);
 	}
-	ppValidationLayer[0] = pLayers[12].layerName;
+	ppValidationLayer[0] = pLayers[13].layerName; // civ
 	printf("\nvalidationLayer: %s\n", ppValidationLayer[0]);
 
 	vkEnumerateInstanceExtensionProperties(NULL, &extensionsCount, NULL);

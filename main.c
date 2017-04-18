@@ -9,6 +9,7 @@
 #include <string.h>
 #include <time.h>
 #include <libusb-1.0\libusb.h>
+#include <Windows.h> // notwendig für Threads --> Alternative evtl. pthreads
 //#define VK_USE_PLATFORM_WIN32_KHR --> GLFW erledigt das
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW\glfw3.h>
@@ -22,6 +23,13 @@
 #define GAMECONTROLLER_PRODUCT_ID 0xc218
 #define HID_INTERFACE 0
 #define ENDPOINT_ADDRESS 0x81
+
+typedef struct {
+	float lStickX;
+	float lStickY;
+	float rStickX;
+	float rStickY;
+} CtrlValues;
 
 libusb_device_handle *hid_gamecontroller;
 
@@ -752,37 +760,26 @@ void drawFrame()
 	assert(result, "vkQueuePresentKHR failed!\n");
 }
 
-void mainLoop()
+int getCtrlValueThread(CtrlValues *pCtrlValues)
 {
 	int result;
-	clock_t start_t, end_t, delta_t;
-	uint32_t framecount = 0;
 	boolean quit = FALSE;
 	int transferred;
 	unsigned char gamectrlbuf[8];
-	mat4 rotY, rotZ, D, transT;
-	float lStickX, lStickY, rStickX, rStickY;
 
-	start_t = clock(); //FPS
-	while (!glfwWindowShouldClose(pWindow) && !quit)
-	{				
+	printf("Thread started.\n");
+
+	memset(gamectrlbuf, 127, 4);
+
+	while (!quit)
+	{
 		result = libusb_bulk_transfer(hid_gamecontroller, ENDPOINT_ADDRESS, gamectrlbuf, 8, &transferred, 1); // --> Performance checken!!! ggf. im Thread aufrufen
 		if (result == 0 || result == -7)
 		{
-			lStickX = -((float)gamectrlbuf[0] / 255.0f * 2.0f - 1.0f) / 10.0f;
-			lStickY = -((float)gamectrlbuf[1] / 255.0f * 2.0f - 1.0f) / 10.0f;
-			rStickX = -((float)gamectrlbuf[2] / 255.0f * 2.0f - 1.0f) / 10.0f;
-			rStickY = -((float)gamectrlbuf[3] / 255.0f * 2.0f - 1.0f) / 2.0f;
-			getRotY4(rotY, rStickX);
-			getRotZ4(rotZ, rStickY);
-			getTrans4(transT, lStickX, 0.0f, lStickY);
-
-			dup4(D, obj2.ubo.mModel);
-			mult4(obj2.ubo.mModel, rotZ, D);
-			dup4(D, obj3.ubo.mView);
-			mult4(obj3.ubo.mView, rotY, D);
-			dup4(D, obj3.ubo.mView);
-			mult4(obj3.ubo.mView, transT, D);
+			pCtrlValues->lStickX = -((float)gamectrlbuf[0] / 255.0f * 2.0f - 1.0f) / 100.0f;
+			pCtrlValues->lStickY = -((float)gamectrlbuf[1] / 255.0f * 2.0f - 1.0f) / 100.0f;
+			pCtrlValues->rStickX = -((float)gamectrlbuf[2] / 255.0f * 2.0f - 1.0f) / 100.0f;
+			pCtrlValues->rStickY = -((float)gamectrlbuf[3] / 255.0f * 2.0f - 1.0f) / 100.0f;
 
 			//printf("%u\n", gamectrlbuf[2]);
 			//printf("%0.2f\n", -((float)gamectrlbuf[2] / 255.0f * 2.0f - 1.0f));
@@ -792,6 +789,39 @@ void mainLoop()
 			printf("Transfer Error: %d\n", result);
 			quit = TRUE;
 		}
+	}
+	printf("Thread terminated!\n");
+
+	return 0;
+}
+
+void mainLoop()
+{
+	DWORD threadID;
+	DWORD threadExitCode;
+	HANDLE hThread;
+	CtrlValues ctrlValues;
+	clock_t start_t, end_t, delta_t;
+	uint32_t framecount = 0;
+	boolean quit = FALSE;	
+	mat4 rotY, rotZ, D, transT;
+
+	memset(&ctrlValues, 0, sizeof(ctrlValues));
+	hThread = CreateThread(NULL, 0, getCtrlValueThread, &ctrlValues, 0, &threadID);
+
+	start_t = clock(); //FPS
+	while (!glfwWindowShouldClose(pWindow) && !quit)
+	{
+		getRotY4(rotY, ctrlValues.rStickX);
+		getRotZ4(rotZ, ctrlValues.rStickY);
+		getTrans4(transT, ctrlValues.lStickX, 0.0f, ctrlValues.lStickY);
+		
+		dup4(D, obj2.ubo.mModel);
+		mult4(obj2.ubo.mModel, rotZ, D);
+		dup4(D, obj3.ubo.mView);
+		mult4(obj3.ubo.mView, rotY, D);
+		dup4(D, obj3.ubo.mView);
+		mult4(obj3.ubo.mView, transT, D);
 
 		framecount++;
 		end_t = clock();
@@ -808,6 +838,8 @@ void mainLoop()
 		updateUniformBuffer();
 		drawFrame();
 	}
+	GetExitCodeThread(hThread, &threadExitCode);
+	TerminateThread(hThread, threadExitCode);
 }
 
 void shutdownGLFW()
