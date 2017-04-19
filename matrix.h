@@ -18,5 +18,7 @@ void getRotY4(mat4 M, float phi);
 void getRotZ4(mat4 M, float phi);
 void mult4(mat4 M, mat4 a, mat4 b);
 void getFrustum(mat4 M, float r, float t, float n, float f);
+void createMeshGrid(float **mesh, unsigned int *size, unsigned int m, unsigned int n);
+void createMeshGridIndices(unsigned short **indices, unsigned int *indicesLen, unsigned int *indicesSize, unsigned int m, unsigned int n);
 
 #endif // MATRIX_H

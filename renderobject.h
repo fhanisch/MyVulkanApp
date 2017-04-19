@@ -1,6 +1,8 @@
 #ifndef RENDER_OBJECT_H
 #define RENDER_OBJECT_H
 
+#include "matrix.h"
+
 typedef struct {
 	mat4 mModel;
 	mat4 mView;

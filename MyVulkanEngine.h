@@ -2,6 +2,7 @@
 #define MY_VULKAN_ENGINE_H
 
 #include <vulkan\vulkan.h>
+#include "renderobject.h"
 
 //globale Variablen im gesamten Programm --> external linkage --> entspricht dem Schlüsselwort 'extern'
 VkInstance instance;
@@ -43,7 +44,11 @@ void getPhysicalDevices();
 void createLogicalDevice();
 void createSwapchain(uint32_t width, uint32_t height);
 void createImageViews();
+void createDescriptorSetLayout();
+void createPipelineLayout();
 void createRenderPass();
+void createGraphicsPipeline(uint32_t width, uint32_t height, PipelineCreateInfo *pPipelineCreateInfo, VkPipeline *pPipeline);
+void createShaderModule(char *filename, VkShaderModule *shaderModule);
 int loadShader(char **shaderStr, char *fileName);
 VkVertexInputBindingDescription getBindingDescription(uint32_t stride);
 VkDescriptorSetLayoutBinding getDescriptorSetLayoutBinding(VkShaderStageFlags stageFlags);
