@@ -113,7 +113,7 @@ void createMeshGrid(float **mesh, unsigned int *size, unsigned int m, unsigned i
 		{
 			(*mesh)[k] = (float)j / ((float)n - 1);
 			k++;
-			(*mesh)[k] = (float)j / ((float)m - 1);
+			(*mesh)[k] = (float)i / ((float)m - 1);
 			k++;
 		}
 }

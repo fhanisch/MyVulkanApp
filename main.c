@@ -76,6 +76,7 @@ static uint16_t indices_plane[] = { 0, 1, 2, 2, 3, 0,
 									8, 9, 10, 10, 11, 8,
 									12, 13, 14, 14, 15, 12
 								};
+static unsigned int meshIndicesLength;
 
 static RenderObject obj1;
 static RenderObject obj2;
@@ -214,20 +215,22 @@ void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 
 void createVertexBuffer()
 {
-	VkDeviceSize bufferSize = sizeof(vertices) + sizeof(verticesPlane);
+	VkDeviceSize bufferSize;
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
 	vec2 *mesh;
 	unsigned int meshGridSize;
 	void *rawData;
 
-	createMeshGrid((float**)&mesh, &meshGridSize, 10, 10);
+	createMeshGrid((float**)&mesh, &meshGridSize, 100, 100);
+	bufferSize = sizeof(vertices) + sizeof(verticesPlane) + meshGridSize;
 
 	createBuffer(&stagingBuffer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBufferMemory);
 
 	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &rawData);
-	memcpy(rawData, &vertices, bufferSize);
+	memcpy(rawData, &vertices, sizeof(vertices));
 	memcpy((char*)rawData + sizeof(vertices), &verticesPlane, sizeof(verticesPlane));
+	memcpy((char*)rawData + sizeof(vertices) + sizeof(verticesPlane), mesh, meshGridSize);
 	vkUnmapMemory(device, stagingBufferMemory);
 
 	createBuffer(&vertexBuffer, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &vertexBufferDeviceMemory);
@@ -240,10 +243,15 @@ void createVertexBuffer()
 
 void createIndexBuffer()
 {
-	VkDeviceSize bufferSize = sizeof(indices) + sizeof(indices2) + sizeof(indices_plane);
+	VkDeviceSize bufferSize;
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
+	uint16_t *meshIndices;	
+	unsigned int meshIndicesSize;
 	void *rawData;
+
+	createMeshGridIndices(&meshIndices, &meshIndicesLength, &meshIndicesSize, 100, 100);
+	bufferSize = sizeof(indices) + sizeof(indices2) + sizeof(indices_plane) + meshIndicesSize;
 
 	createBuffer(&stagingBuffer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingBufferMemory);
 
@@ -251,6 +259,7 @@ void createIndexBuffer()
 	memcpy(rawData, indices, sizeof(indices));
 	memcpy((char*)rawData + sizeof(indices), indices2, sizeof(indices2));
 	memcpy((char*)rawData + sizeof(indices)+ sizeof(indices2), indices_plane, sizeof(indices_plane));
+	memcpy((char*)rawData + sizeof(indices) + sizeof(indices2) + sizeof(indices_plane), meshIndices, meshIndicesSize);
 	vkUnmapMemory(device, stagingBufferMemory);
 
 	createBuffer(&indexBuffer, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &indexBufferDeviceMemory);
@@ -379,6 +388,7 @@ void createCommandBuffer()
 	VkClearValue clearDepth = { 1.0f, 0 };
 	VkDeviceSize offsets[] = { 0 };
 	VkDeviceSize offsets2[] = { sizeof(vertices) };
+	VkDeviceSize offsets3[] = { sizeof(vertices) + sizeof(verticesPlane) };
 
 	clearValues[0] = clearColor;
 	clearValues[1] = clearDepth;
@@ -415,8 +425,9 @@ void createCommandBuffer()
 
 		vkCmdBeginRenderPass(pCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 		
-		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets);
 		/*
+		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets);
+		
 		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline2);
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices), VK_INDEX_TYPE_UINT16);
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet2, 0, NULL);
@@ -429,11 +440,18 @@ void createCommandBuffer()
 		//vkCmdDraw(pCommandBuffers[i], 3, 1, 0, 0);
 		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 , 1, 0, 0, 0);
 		*/	
+		/*
 		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline3);
 		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets2);
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices) + sizeof(indices2), VK_INDEX_TYPE_UINT16);
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet3, 0, NULL);		
 		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices_plane) / 2, 1, 0, 0, 0);
+		*/
+		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline3);
+		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets3);
+		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices) + sizeof(indices2) + sizeof(indices_plane), VK_INDEX_TYPE_UINT16);
+		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet3, 0, NULL);
+		vkCmdDrawIndexed(pCommandBuffers[i], meshIndicesLength, 1, 0, 0, 0);
 		
 		vkCmdEndRenderPass(pCommandBuffers[i]);
 
@@ -491,7 +509,8 @@ void setupVulkan()
 	createGraphicsPipeline(wndWidth, wndHeight, &createInfo1, &pipeline1);
 	createGraphicsPipeline(wndWidth, wndHeight, &createInfo2, &pipeline2);
 	//createGraphicsPipeline(wndWidth, wndHeight, &createInfo3, &pipeline3);
-	createGraphicsPipeline(wndWidth, wndHeight, &quadCreateInfo, &pipeline3);
+	//createGraphicsPipeline(wndWidth, wndHeight, &quadCreateInfo, &pipeline3);
+	createGraphicsPipeline(wndWidth, wndHeight, &sphereCreateInfo, &pipeline3);
 	createFramebuffer();	
 	createVertexBuffer();	
 	createIndexBuffer();

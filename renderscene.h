@@ -43,5 +43,16 @@ PipelineCreateInfo quadCreateInfo = {
 	.normalOffset = offsetof(Vertex3D, normal)
 };
 
+PipelineCreateInfo sphereCreateInfo = {
+	.pVertShaderFileName = "vs_adsPerFragment_sphere.spv",
+	.pFragShaderFileName = "fs_adsPerFragment.spv",
+	.stride = sizeof(vec2),
+	.vertexFormat = VK_FORMAT_R32G32_SFLOAT,
+	.posOffset = 0,
+	.colorOffset = 0,
+	.texCoordsOffset = 0,
+	.normalOffset = 0
+};
+
 #endif // !RENDER_SCENE_H
 

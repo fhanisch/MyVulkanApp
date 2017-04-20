@@ -18,7 +18,7 @@ const vec3 lightSource = vec3(100.0, 0.0, 100.0);
 
 vec3 calcADS(vec3 c, vec3 vertex, vec3 normal, vec3 light)
 {
-	vec3 A = 0.25*c;
+	vec3 A = 0.1*c;
 	vec3 D = c;
 	vec3 S = vec3(0.0);
 
