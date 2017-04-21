@@ -46,11 +46,11 @@ void transpose4(mat4 M, mat4 N)
 			M[i][j] = N[j][i];
 }
 
-void dup4(mat4 M, mat4 N)
+void dup4(mat4 dst, mat4 src)
 {
 	int i, j;
 	for (i = 0; i < 4; ++i)
-		for (j = 0; j < 4; ++j) M[i][j] = N[i][j];
+		for (j = 0; j < 4; ++j) dst[i][j] = src[i][j];
 }
 
 void getTrans4(mat4 T, float x, float y, float z)
@@ -59,6 +59,16 @@ void getTrans4(mat4 T, float x, float y, float z)
 	T[3][0] = x;
 	T[3][1] = y;
 	T[3][2] = z;
+}
+
+void getRotX4(mat4 M, float phi)
+{
+	float s = sinf(phi);
+	float c = cosf(phi);
+
+	identity4(M);
+	M[1][1] = c; M[2][1] = -s;
+	M[1][2] = s; M[2][2] = c;
 }
 
 void getRotY4(mat4 M, float phi)

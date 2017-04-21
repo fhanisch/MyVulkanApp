@@ -44,7 +44,7 @@ PipelineCreateInfo quadCreateInfo = {
 };
 
 PipelineCreateInfo sphereCreateInfo = {
-	.pVertShaderFileName = "vs_adsPerFragment_sphere.spv",
+	.pVertShaderFileName = "vs_adsPerFragment_apfel.spv",
 	.pFragShaderFileName = "fs_adsPerFragment.spv",
 	.stride = sizeof(vec2),
 	.vertexFormat = VK_FORMAT_R32G32_SFLOAT,

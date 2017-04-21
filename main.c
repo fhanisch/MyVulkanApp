@@ -294,13 +294,13 @@ void updateUniformBuffer()
 {
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 	void *rawData;
-	
+	/*
 	vkMapMemory(device, uniformStagingBufferMemory, 0, bufferSize, 0, &rawData);
 	memcpy(rawData, &obj2.ubo.mModel, bufferSize);
 	vkUnmapMemory(device, uniformStagingBufferMemory);
 
 	copyBuffer(uniformStagingBuffer, uniformBuffer2, bufferSize);
-
+	*/
 	vkMapMemory(device, uniformStagingBufferMemory, 0, bufferSize, 0, &rawData);
 	memcpy(rawData, &obj3.ubo.mModel, bufferSize);
 	vkUnmapMemory(device, uniformStagingBufferMemory);
@@ -384,7 +384,7 @@ void createCommandBuffer()
 	VkCommandBufferBeginInfo commandBufferBeginInfo;
 	VkRenderPassBeginInfo renderPassBeginInfo;
 	VkClearValue clearValues[2];
-	VkClearValue clearColor = { 0.0f, 0.0f, 1.0f, 1.0f };
+	VkClearValue clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
 	VkClearValue clearDepth = { 1.0f, 0 };
 	VkDeviceSize offsets[] = { 0 };
 	VkDeviceSize offsets2[] = { sizeof(vertices) };
@@ -479,6 +479,7 @@ void setupVulkan()
 {	
 	const char **glfwExtensions;
 	uint32_t glfwExtensionsCount;
+	mat4 T, D;
 
 	identity4(obj1.ubo.mModel);
 	identity4(obj1.ubo.mView);
@@ -488,8 +489,11 @@ void setupVulkan()
 	identity4(obj2.ubo.mView);
 	identity4(obj2.ubo.mProj);
 	obj2.ubo.mModel[0][0] = 0.25f;
-
-	getTrans4(obj3.ubo.mModel, 0.0f, 0.0f, -7.0f);
+	
+	getRotX4(obj3.ubo.mModel, PI / 4.0f);
+	getTrans4(T, 0.0f, 0.0f, -7.0f);
+	dup4(D, obj3.ubo.mModel);
+	mult4(obj3.ubo.mModel, T, D);
 	identity4(obj3.ubo.mView);
 	identity4(obj3.ubo.mProj);
 	getFrustum(obj3.ubo.mProj, 0.25f, 0.25f, 0.5f, 10.0f);
@@ -614,7 +618,7 @@ void mainLoop()
 
 	start_t = clock(); //FPS
 	while (!glfwWindowShouldClose(pWindow) && !quit)
-	{
+	{		
 		getRotY4(rotY, ctrlValues.rStickX);
 		getRotZ4(rotZ, ctrlValues.rStickY);
 		getTrans4(transT, ctrlValues.lStickX, 0.0f, ctrlValues.lStickY);
@@ -622,7 +626,7 @@ void mainLoop()
 		dup4(D, obj2.ubo.mModel);
 		mult4(obj2.ubo.mModel, rotZ, D);
 		dup4(D, obj3.ubo.mView);
-		mult4(obj3.ubo.mView, rotY, D);
+		mult4(obj3.ubo.mView, rotY, D);		
 		dup4(D, obj3.ubo.mView);
 		mult4(obj3.ubo.mView, transT, D);
 
