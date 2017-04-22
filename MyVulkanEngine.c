@@ -804,9 +804,9 @@ void shutdownVulkan()
 
 	vkDestroyDescriptorPool(device, descriptorPool, NULL);
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, NULL);
-	vkFreeMemory(device, uniformBufferDeviceMemory, NULL);
+	//vkFreeMemory(device, uniformBufferDeviceMemory, NULL);
 	vkFreeMemory(device, vertexBufferDeviceMemory, NULL);
-	vkDestroyBuffer(device, uniformBuffer, NULL);
+	//vkDestroyBuffer(device, uniformBuffer, NULL);
 	vkDestroyBuffer(device, vertexBuffer, NULL);
 	vkDestroySemaphore(device, semaphoreImageAvailable, NULL);
 	vkDestroySemaphore(device, semaphoreRenderingDone, NULL);

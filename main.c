@@ -39,48 +39,9 @@ static const uint32_t wndHeight = 1000;
 // internal linkage --> Definition static: https://de.wikipedia.org/wiki/Static_(Schl%C3%BCsselwort) --> ohne 'static' würde 'extern' entsprechen
 static const char appName[] = "MyVulkanApp";
 
-static Vertex vertices[] = { 
-								{ {-1.0f,  1.0f}, { 1.0f, 0.0f, 1.0f }, { -1.0f,  1.0f } },
-								{ {-1.0f, -1.0f}, { 1.0f, 0.0f, 1.0f }, { -1.0f, -1.0f } },
-								{ { 1.0f, -1.0f}, { 1.0f, 0.0f, 1.0f }, {  1.0f, -1.0f } },
-								{ { 1.0f,  1.0f}, { 1.0f, 0.0f, 1.0f }, {  1.0f,  1.0f } },
-								{ { 0.0f, -1.0f}, { 1.0f, 0.0f, 1.0f }, {  0.0f, -1.0f } }
-							};
-							
-static Vertex3D verticesPlane[] = {
-	{ { -1.0f,  1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f,  1.0f } },
-	{ {  1.0f,  1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 0.0f,  1.0f } },
-	{ {  1.0f, -1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 1.0f, 0.0f }, { 0.0f, 0.0f,  1.0f } },	
-	{ { -1.0f, -1.0f,  1.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f }, { 0.0f, 0.0f,  1.0f } },
-
-	{ {  1.0f, -1.0f,  1.0f }, { 1.0f, 1.0f, 0.0f }, { 0.0f, 0.0f }, { 1.0f, 0.0f,  0.0f } },
-	{ {  1.0f,  1.0f,  1.0f }, { 1.0f, 1.0f, 0.0f }, { 1.0f, 1.0f }, { 1.0f, 0.0f,  0.0f } },
-	{ {  1.0f,  1.0f, -1.0f }, { 1.0f, 1.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 0.0f,  0.0f } },
-	{ {  1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f,  0.0f } },
-
-	{ { -1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 0.0f, -1.0f } },
-	{ {  1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 0.0f, -1.0f } },
-	{ {  1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f }, { 0.0f, 0.0f, -1.0f } },
-	{ { -1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f }, { 0.0f, 0.0f, -1.0f } },
-
-	{ { -1.0f, -1.0f,  1.0f }, { 1.0f, 0.0f, 1.0f }, { 0.0f, 0.0f }, { 1.0f, 0.0f,  0.0f } },
-	{ { -1.0f,  1.0f,  1.0f }, { 1.0f, 0.0f, 1.0f }, { 1.0f, 1.0f }, { 1.0f, 0.0f,  0.0f } },
-	{ { -1.0f,  1.0f, -1.0f }, { 1.0f, 0.0f, 1.0f }, { 1.0f, 0.0f }, { 1.0f, 0.0f,  0.0f } },
-	{ { -1.0f, -1.0f, -1.0f }, { 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f,  0.0f } },
-};
-
-static uint16_t indices[] = { 0, 1, 2, 0, 2, 3 };
-static uint16_t indices2[] = { 0, 4, 3 };
-static uint16_t indices_plane[] = { 0, 1, 2, 2, 3, 0,
-									4, 5, 6, 6, 7, 4,
-									8, 9, 10, 10, 11, 8,
-									12, 13, 14, 14, 15, 12
-								};
-static unsigned int meshIndicesLength;
-
 static RenderObject obj1;
 static RenderObject obj2;
-static RenderObject obj3;
+static RenderObject apfel;
 
 void startGLFW()
 {
@@ -270,42 +231,26 @@ void createIndexBuffer()
 	vkDestroyBuffer(device, stagingBuffer, NULL);
 }
 
-void createUniformStagingBuffer()
-{
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-	createBuffer(&uniformStagingBuffer, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &uniformStagingBufferMemory);
-}
-
-void createUniformBuffer(UniformBufferObject *pUBO, VkBuffer *pUniformBuffer, VkDeviceMemory *pUniformBufferDeviceMemory)
-{
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-	void *rawData;	
-
-	vkMapMemory(device, uniformStagingBufferMemory, 0, bufferSize, 0, &rawData);
-	memcpy(rawData, pUBO, bufferSize);
-	vkUnmapMemory(device, uniformStagingBufferMemory);	
-
-	createBuffer(pUniformBuffer, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, pUniformBufferDeviceMemory);
-
-	copyBuffer(uniformStagingBuffer, *pUniformBuffer, bufferSize);
-}
-
-void updateUniformBuffer()
+void createUniformBuffer(RenderObject *pObj)
 {
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 	void *rawData;
-	/*
-	vkMapMemory(device, uniformStagingBufferMemory, 0, bufferSize, 0, &rawData);
-	memcpy(rawData, &obj2.ubo.mModel, bufferSize);
-	vkUnmapMemory(device, uniformStagingBufferMemory);
 
-	copyBuffer(uniformStagingBuffer, uniformBuffer2, bufferSize);
-	*/
-	vkMapMemory(device, uniformStagingBufferMemory, 0, bufferSize, 0, &rawData);
-	memcpy(rawData, &obj3.ubo.mModel, bufferSize);
-	vkUnmapMemory(device, uniformStagingBufferMemory);
+	createBuffer(&pObj->uniformBuffer, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &pObj->deviceMemory);
 
-	copyBuffer(uniformStagingBuffer, uniformBuffer3, bufferSize);
+	vkMapMemory(device, pObj->deviceMemory, 0, bufferSize, 0, &rawData);
+	memcpy(rawData, &pObj->ubo, bufferSize);
+	vkUnmapMemory(device, pObj->deviceMemory);	
+}
+
+void updateUniformBuffer(RenderObject *pObj)
+{
+	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+	void *rawData;
+
+	vkMapMemory(device, pObj->deviceMemory, 0, bufferSize, 0, &rawData);
+	memcpy(rawData, pObj->ubo.mModel, bufferSize);
+	vkUnmapMemory(device, pObj->deviceMemory);
 }
 
 void createDescriptorPool()
@@ -447,10 +392,10 @@ void createCommandBuffer()
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet3, 0, NULL);		
 		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices_plane) / 2, 1, 0, 0, 0);
 		*/
-		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline3);
+		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, apfel.pipeline);
 		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets3);
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices) + sizeof(indices2) + sizeof(indices_plane), VK_INDEX_TYPE_UINT16);
-		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet3, 0, NULL);
+		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &apfel.uniformDescriptorSet, 0, NULL);
 		vkCmdDrawIndexed(pCommandBuffers[i], meshIndicesLength, 1, 0, 0, 0);
 		
 		vkCmdEndRenderPass(pCommandBuffers[i]);
@@ -481,6 +426,8 @@ void setupVulkan()
 	uint32_t glfwExtensionsCount;
 	mat4 T, D;
 
+	initRenderObject(&apfel, apfelCreateInfo);
+
 	identity4(obj1.ubo.mModel);
 	identity4(obj1.ubo.mView);
 	identity4(obj1.ubo.mProj);
@@ -490,13 +437,13 @@ void setupVulkan()
 	identity4(obj2.ubo.mProj);
 	obj2.ubo.mModel[0][0] = 0.25f;
 	
-	getRotX4(obj3.ubo.mModel, PI / 4.0f);
+	getRotX4(apfel.ubo.mModel, PI / 4.0f);
 	getTrans4(T, 0.0f, 0.0f, -7.0f);
-	dup4(D, obj3.ubo.mModel);
-	mult4(obj3.ubo.mModel, T, D);
-	identity4(obj3.ubo.mView);
-	identity4(obj3.ubo.mProj);
-	getFrustum(obj3.ubo.mProj, 0.25f, 0.25f, 0.5f, 10.0f);
+	dup4(D, apfel.ubo.mModel);
+	mult4(apfel.ubo.mModel, T, D);
+	identity4(apfel.ubo.mView);
+	identity4(apfel.ubo.mProj);
+	getFrustum(apfel.ubo.mProj, 0.25f, 0.25f, 0.5f, 10.0f);
 
 	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionsCount);
 	createInstance(appName, glfwExtensions, glfwExtensionsCount);
@@ -514,18 +461,17 @@ void setupVulkan()
 	createGraphicsPipeline(wndWidth, wndHeight, &createInfo2, &pipeline2);
 	//createGraphicsPipeline(wndWidth, wndHeight, &createInfo3, &pipeline3);
 	//createGraphicsPipeline(wndWidth, wndHeight, &quadCreateInfo, &pipeline3);
-	createGraphicsPipeline(wndWidth, wndHeight, &sphereCreateInfo, &pipeline3);
+	createGraphicsPipeline(wndWidth, wndHeight, &apfel.pipelineCreateInfo, &apfel.pipeline);
 	createFramebuffer();	
 	createVertexBuffer();	
 	createIndexBuffer();
-	createUniformStagingBuffer();
-	createUniformBuffer(&obj1.ubo, &uniformBuffer, &uniformBufferDeviceMemory);
-	createUniformBuffer(&obj2.ubo, &uniformBuffer2, &uniformBufferDeviceMemory2);
-	createUniformBuffer(&obj3.ubo, &uniformBuffer3, &uniformBufferDeviceMemory3);
+	createUniformBuffer(&obj1);
+	createUniformBuffer(&obj2);
+	createUniformBuffer(&apfel);
 	createDescriptorPool();
-	createDescriptorSet(uniformBuffer, &descriptorSet);
-	createDescriptorSet(uniformBuffer2, &descriptorSet2);
-	createDescriptorSet(uniformBuffer3, &descriptorSet3);
+	createDescriptorSet(obj1.uniformBuffer, &descriptorSet);
+	createDescriptorSet(obj2.uniformBuffer, &descriptorSet2);
+	createDescriptorSet(apfel.uniformBuffer, &apfel.uniformDescriptorSet);
 	createCommandBuffer();
 	createSemaphore();
 }
@@ -611,7 +557,7 @@ void mainLoop()
 	clock_t start_t, end_t, delta_t;
 	uint32_t framecount = 0;
 	boolean quit = FALSE;	
-	mat4 rotY, rotZ, D, transT;
+	mat4 rotX, rotY, rotZ, transT;
 
 	memset(&ctrlValues, 0, sizeof(ctrlValues));
 	hThread = CreateThread(NULL, 0, getCtrlValuesThread, &ctrlValues, 0, &threadID);
@@ -619,16 +565,15 @@ void mainLoop()
 	start_t = clock(); //FPS
 	while (!glfwWindowShouldClose(pWindow) && !quit)
 	{		
+		identity4(rotX);
 		getRotY4(rotY, ctrlValues.rStickX);
 		getRotZ4(rotZ, ctrlValues.rStickY);
 		getTrans4(transT, ctrlValues.lStickX, 0.0f, ctrlValues.lStickY);
 		
-		dup4(D, obj2.ubo.mModel);
-		mult4(obj2.ubo.mModel, rotZ, D);
-		dup4(D, obj3.ubo.mView);
-		mult4(obj3.ubo.mView, rotY, D);		
-		dup4(D, obj3.ubo.mView);
-		mult4(obj3.ubo.mView, transT, D);
+		//dup4(D, obj2.ubo.mModel);
+		//mult4(obj2.ubo.mModel, rotZ, D);
+		
+		motion(&apfel, rotX, rotY, rotZ, transT);
 
 		framecount++;
 		end_t = clock();
@@ -642,7 +587,7 @@ void mainLoop()
 		}
 		
 		glfwPollEvents();
-		updateUniformBuffer();
+		updateUniformBuffer(&apfel);
 		drawFrame();
 	}
 	GetExitCodeThread(hThread, &threadExitCode);

@@ -36,8 +36,13 @@ typedef struct {
 typedef struct {
 	PipelineCreateInfo pipelineCreateInfo;
 	UniformBufferObject ubo;
+	VkPipeline pipeline;
+	VkDeviceMemory deviceMemory;
+	VkBuffer uniformBuffer;
+	VkDescriptorSet uniformDescriptorSet;
 } RenderObject;
 
 void initRenderObject(RenderObject *pObj, PipelineCreateInfo createInfo);
+void motion(RenderObject *pObj, mat4 rotX, mat4 rotY, mat4 rotZ, mat4 transT);
 
 #endif // !RENDER_OBJECT_H
