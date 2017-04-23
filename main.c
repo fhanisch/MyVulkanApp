@@ -43,6 +43,7 @@ static mat4 viewMatrix;
 
 static RenderObject obj1;
 static RenderObject obj2;
+static RenderObject cube;
 static RenderObject sphere;
 static RenderObject apfel;
 
@@ -392,13 +393,13 @@ void createCommandBuffer()
 		//vkCmdDraw(pCommandBuffers[i], 3, 1, 0, 0);
 		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices) / 2 , 1, 0, 0, 0);
 		*/	
-		/*
-		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline3);
+		
+		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, cube.pipeline);
 		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets2);
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices) + sizeof(indices2), VK_INDEX_TYPE_UINT16);
-		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet3, 0, NULL);		
+		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &cube.uniformDescriptorSet, 0, NULL);		
 		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices_plane) / 2, 1, 0, 0, 0);
-		*/		
+				
 		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets3);
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices) + sizeof(indices2) + sizeof(indices_plane), VK_INDEX_TYPE_UINT16);
 
@@ -452,7 +453,7 @@ void setupVulkan()
 	//createGraphicsPipeline(wndWidth, wndHeight, &createInfo1, &pipeline1);
 	//createGraphicsPipeline(wndWidth, wndHeight, &createInfo2, &pipeline2);
 	//createGraphicsPipeline(wndWidth, wndHeight, &createInfo3, &pipeline3);
-	//createGraphicsPipeline(wndWidth, wndHeight, &quadCreateInfo, &pipeline3);
+	createGraphicsPipeline(wndWidth, wndHeight, &cube.pipelineCreateInfo, &cube.pipeline);
 	createGraphicsPipeline(wndWidth, wndHeight, &sphere.pipelineCreateInfo, &sphere.pipeline);
 	createGraphicsPipeline(wndWidth, wndHeight, &apfel.pipelineCreateInfo, &apfel.pipeline);
 	createFramebuffer();	
@@ -460,11 +461,13 @@ void setupVulkan()
 	createIndexBuffer();
 	//createUniformBuffer(&obj1);
 	//createUniformBuffer(&obj2);
+	createUniformBuffer(&cube);
 	createUniformBuffer(&sphere);
 	createUniformBuffer(&apfel);
 	createDescriptorPool();
 	//createDescriptorSet(obj1.uniformBuffer, &descriptorSet);
 	//createDescriptorSet(obj2.uniformBuffer, &descriptorSet2);
+	createDescriptorSet(cube.uniformBuffer, &cube.uniformDescriptorSet);
 	createDescriptorSet(sphere.uniformBuffer, &sphere.uniformDescriptorSet);
 	createDescriptorSet(apfel.uniformBuffer, &apfel.uniformDescriptorSet);
 	createCommandBuffer();
@@ -476,6 +479,7 @@ void initRenderScene()
 	mat4 rotX, rotY, rotZ, T;
 
 	identity4(viewMatrix);
+	initRenderObject(&cube, quadCreateInfo, &viewMatrix);
 	initRenderObject(&sphere, sphereCreateInfo, &viewMatrix);
 	initRenderObject(&apfel, apfelCreateInfo, &viewMatrix);
 
@@ -487,6 +491,14 @@ void initRenderScene()
 	//identity4(*obj2.pMView);
 	//identity4(obj2.mProj);
 	//obj2.mModel[0][0] = 0.25f;
+
+	//Cube
+	identity4(rotX);
+	identity4(rotY);
+	identity4(rotZ);
+	getTrans4(T, -15.0f, 0.0f, 0.0f);
+	motion(&cube, rotX, rotY, rotZ, T);
+	getFrustum(cube.mProj, 0.25f, 0.25f, 0.5f, 50.0f);
 
 	//Sphere
 	identity4(rotX);
@@ -626,6 +638,7 @@ void mainLoop()
 		}
 		
 		glfwPollEvents();
+		updateUniformBuffer(&cube);
 		updateUniformBuffer(&sphere);
 		updateUniformBuffer(&apfel);
 		drawFrame();
