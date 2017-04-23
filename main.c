@@ -39,8 +39,11 @@ static const uint32_t wndHeight = 1000;
 // internal linkage --> Definition static: https://de.wikipedia.org/wiki/Static_(Schl%C3%BCsselwort) --> ohne 'static' würde 'extern' entsprechen
 static const char appName[] = "MyVulkanApp";
 
+static mat4 viewMatrix;
+
 static RenderObject obj1;
 static RenderObject obj2;
+static RenderObject sphere;
 static RenderObject apfel;
 
 void startGLFW()
@@ -239,7 +242,9 @@ void createUniformBuffer(RenderObject *pObj)
 	createBuffer(&pObj->uniformBuffer, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &pObj->deviceMemory);
 
 	vkMapMemory(device, pObj->deviceMemory, 0, bufferSize, 0, &rawData);
-	memcpy(rawData, &pObj->ubo, bufferSize);
+	memcpy(rawData, pObj->mModel, sizeof(mat4));
+	memcpy((char*)rawData + sizeof(mat4), pObj->pMView, sizeof(mat4));
+	memcpy((char*)rawData + 2*sizeof(mat4), pObj->mProj, sizeof(mat4));
 	vkUnmapMemory(device, pObj->deviceMemory);	
 }
 
@@ -249,7 +254,9 @@ void updateUniformBuffer(RenderObject *pObj)
 	void *rawData;
 
 	vkMapMemory(device, pObj->deviceMemory, 0, bufferSize, 0, &rawData);
-	memcpy(rawData, pObj->ubo.mModel, bufferSize);
+	memcpy(rawData, pObj->mModel, sizeof(mat4));
+	memcpy((char*)rawData + sizeof(mat4), pObj->pMView, sizeof(mat4));
+	memcpy((char*)rawData + 2 * sizeof(mat4), pObj->mProj, sizeof(mat4));
 	vkUnmapMemory(device, pObj->deviceMemory);
 }
 
@@ -391,10 +398,15 @@ void createCommandBuffer()
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices) + sizeof(indices2), VK_INDEX_TYPE_UINT16);
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet3, 0, NULL);		
 		vkCmdDrawIndexed(pCommandBuffers[i], sizeof(indices_plane) / 2, 1, 0, 0, 0);
-		*/
-		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, apfel.pipeline);
+		*/		
 		vkCmdBindVertexBuffers(pCommandBuffers[i], 0, 1, &vertexBuffer, offsets3);
 		vkCmdBindIndexBuffer(pCommandBuffers[i], indexBuffer, sizeof(indices) + sizeof(indices2) + sizeof(indices_plane), VK_INDEX_TYPE_UINT16);
+
+		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, sphere.pipeline);
+		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sphere.uniformDescriptorSet, 0, NULL);
+		vkCmdDrawIndexed(pCommandBuffers[i], meshIndicesLength, 1, 0, 0, 0);
+
+		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, apfel.pipeline);
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &apfel.uniformDescriptorSet, 0, NULL);
 		vkCmdDrawIndexed(pCommandBuffers[i], meshIndicesLength, 1, 0, 0, 0);
 		
@@ -423,27 +435,7 @@ void createSemaphore()
 void setupVulkan()
 {	
 	const char **glfwExtensions;
-	uint32_t glfwExtensionsCount;
-	mat4 T, D;
-
-	initRenderObject(&apfel, apfelCreateInfo);
-
-	identity4(obj1.ubo.mModel);
-	identity4(obj1.ubo.mView);
-	identity4(obj1.ubo.mProj);
-	//obj1.ubo.mModel[0][0] = 0.5f;
-	identity4(obj2.ubo.mModel);
-	identity4(obj2.ubo.mView);
-	identity4(obj2.ubo.mProj);
-	obj2.ubo.mModel[0][0] = 0.25f;
-	
-	getRotX4(apfel.ubo.mModel, PI / 4.0f);
-	getTrans4(T, 0.0f, 0.0f, -7.0f);
-	dup4(D, apfel.ubo.mModel);
-	mult4(apfel.ubo.mModel, T, D);
-	identity4(apfel.ubo.mView);
-	identity4(apfel.ubo.mProj);
-	getFrustum(apfel.ubo.mProj, 0.25f, 0.25f, 0.5f, 10.0f);
+	uint32_t glfwExtensionsCount;	
 
 	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionsCount);
 	createInstance(appName, glfwExtensions, glfwExtensionsCount);
@@ -457,23 +449,60 @@ void setupVulkan()
 	createCommandPool();
 	createDepthResources(wndWidth, wndHeight);
 	createRenderPass();
-	createGraphicsPipeline(wndWidth, wndHeight, &createInfo1, &pipeline1);
-	createGraphicsPipeline(wndWidth, wndHeight, &createInfo2, &pipeline2);
+	//createGraphicsPipeline(wndWidth, wndHeight, &createInfo1, &pipeline1);
+	//createGraphicsPipeline(wndWidth, wndHeight, &createInfo2, &pipeline2);
 	//createGraphicsPipeline(wndWidth, wndHeight, &createInfo3, &pipeline3);
 	//createGraphicsPipeline(wndWidth, wndHeight, &quadCreateInfo, &pipeline3);
+	createGraphicsPipeline(wndWidth, wndHeight, &sphere.pipelineCreateInfo, &sphere.pipeline);
 	createGraphicsPipeline(wndWidth, wndHeight, &apfel.pipelineCreateInfo, &apfel.pipeline);
 	createFramebuffer();	
 	createVertexBuffer();	
 	createIndexBuffer();
-	createUniformBuffer(&obj1);
-	createUniformBuffer(&obj2);
+	//createUniformBuffer(&obj1);
+	//createUniformBuffer(&obj2);
+	createUniformBuffer(&sphere);
 	createUniformBuffer(&apfel);
 	createDescriptorPool();
-	createDescriptorSet(obj1.uniformBuffer, &descriptorSet);
-	createDescriptorSet(obj2.uniformBuffer, &descriptorSet2);
+	//createDescriptorSet(obj1.uniformBuffer, &descriptorSet);
+	//createDescriptorSet(obj2.uniformBuffer, &descriptorSet2);
+	createDescriptorSet(sphere.uniformBuffer, &sphere.uniformDescriptorSet);
 	createDescriptorSet(apfel.uniformBuffer, &apfel.uniformDescriptorSet);
 	createCommandBuffer();
 	createSemaphore();
+}
+
+void initRenderScene()
+{
+	mat4 rotX, rotY, rotZ, T;
+
+	identity4(viewMatrix);
+	initRenderObject(&sphere, sphereCreateInfo, &viewMatrix);
+	initRenderObject(&apfel, apfelCreateInfo, &viewMatrix);
+
+	//identity4(obj1.mModel);
+	//identity4(*obj1.pMView);
+	//identity4(obj1.mProj);
+	//obj1.ubo.mModel[0][0] = 0.5f;
+	//identity4(obj2.mModel);
+	//identity4(*obj2.pMView);
+	//identity4(obj2.mProj);
+	//obj2.mModel[0][0] = 0.25f;
+
+	//Sphere
+	identity4(rotX);
+	identity4(rotY);
+	identity4(rotZ);
+	getTrans4(T, 0.0f, 0.0f, -15.0f);
+	motion(&sphere, rotX, rotY, rotZ, T);
+	getFrustum(sphere.mProj, 0.25f, 0.25f, 0.5f, 50.0f);
+
+	//Apfel
+	getRotX4(rotX, PI / 4.0f);
+	identity4(rotY);
+	identity4(rotZ);
+	getTrans4(T, 0.0f, 0.0f, -7.0f);
+	motion(&apfel, rotX, rotY, rotZ, T);
+	getFrustum(apfel.mProj, 0.25f, 0.25f, 0.5f, 50.0f);
 }
 
 void drawFrame()
@@ -511,6 +540,16 @@ void drawFrame()
 
 	result = vkQueuePresentKHR(queue, &presentInfo);
 	assert(result, "vkQueuePresentKHR failed!\n");
+}
+
+void camMotion(mat4 *pMView, mat4 rotX, mat4 rotY, mat4 rotZ, mat4 transT)
+{
+	mat4 tmp;
+
+	dup4(tmp, *pMView);
+	mult4(*pMView, rotY, tmp);
+	dup4(tmp, *pMView);
+	mult4(*pMView, transT, tmp);
 }
 
 int getCtrlValuesThread(CtrlValues *pCtrlValues)
@@ -573,7 +612,7 @@ void mainLoop()
 		//dup4(D, obj2.ubo.mModel);
 		//mult4(obj2.ubo.mModel, rotZ, D);
 		
-		motion(&apfel, rotX, rotY, rotZ, transT);
+		camMotion(&viewMatrix, rotX, rotY, rotZ, transT);
 
 		framecount++;
 		end_t = clock();
@@ -587,6 +626,7 @@ void mainLoop()
 		}
 		
 		glfwPollEvents();
+		updateUniformBuffer(&sphere);
 		updateUniformBuffer(&apfel);
 		drawFrame();
 	}
@@ -672,7 +712,8 @@ int main(int argc, char *argv[])
 	assert(result, "init_hid failed!\n");
 
 	startGLFW();
-	setupVulkan();
+	initRenderScene();
+	setupVulkan();	
 	mainLoop();
 	shutdownVulkan();
 	shutdownGLFW();

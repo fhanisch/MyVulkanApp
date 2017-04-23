@@ -52,7 +52,7 @@ void main()
 	normal = -cross(fu,fv);
 	*/
 
-	color = vec3(0.0, 1.0, 0.0);
+	color = vec3(1.0, 0.0, 0.0);
 	texCoords = vec2(0.0, 0.0);
 
 	vertexPosition = vec3(ubo.mView * ubo.mModel * vec4(vertex, 1.0));
