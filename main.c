@@ -45,6 +45,7 @@ static RenderObject obj1;
 static RenderObject obj2;
 static RenderObject cube;
 static RenderObject sphere;
+static RenderObject planet;
 static RenderObject apfel;
 
 void startGLFW()
@@ -268,12 +269,12 @@ void createDescriptorPool()
 	VkDescriptorPoolCreateInfo poolInfo;
 
 	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSize.descriptorCount = 3; // funktioniert auch mit 1 --> warum?
+	poolSize.descriptorCount = 4; // funktioniert auch mit 1 --> warum?
 
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.pNext = NULL;
 	poolInfo.flags = 0;
-	poolInfo.maxSets = 3;
+	poolInfo.maxSets = 4;
 	poolInfo.poolSizeCount = 1;
 	poolInfo.pPoolSizes = &poolSize;
 
@@ -406,6 +407,9 @@ void createCommandBuffer()
 		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, sphere.pipeline);
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sphere.uniformDescriptorSet, 0, NULL);
 		vkCmdDrawIndexed(pCommandBuffers[i], meshIndicesLength, 1, 0, 0, 0);
+		
+		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &planet.uniformDescriptorSet, 0, NULL);
+		vkCmdDrawIndexed(pCommandBuffers[i], meshIndicesLength, 1, 0, 0, 0);
 
 		vkCmdBindPipeline(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, apfel.pipeline);
 		vkCmdBindDescriptorSets(pCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &apfel.uniformDescriptorSet, 0, NULL);
@@ -463,12 +467,14 @@ void setupVulkan()
 	//createUniformBuffer(&obj2);
 	createUniformBuffer(&cube);
 	createUniformBuffer(&sphere);
+	createUniformBuffer(&planet);
 	createUniformBuffer(&apfel);
 	createDescriptorPool();
 	//createDescriptorSet(obj1.uniformBuffer, &descriptorSet);
 	//createDescriptorSet(obj2.uniformBuffer, &descriptorSet2);
 	createDescriptorSet(cube.uniformBuffer, &cube.uniformDescriptorSet);
 	createDescriptorSet(sphere.uniformBuffer, &sphere.uniformDescriptorSet);
+	createDescriptorSet(planet.uniformBuffer, &planet.uniformDescriptorSet);
 	createDescriptorSet(apfel.uniformBuffer, &apfel.uniformDescriptorSet);
 	createCommandBuffer();
 	createSemaphore();
@@ -481,6 +487,7 @@ void initRenderScene()
 	identity4(viewMatrix);
 	initRenderObject(&cube, quadCreateInfo, &viewMatrix);
 	initRenderObject(&sphere, sphereCreateInfo, &viewMatrix);
+	initRenderObject(&planet, sphereCreateInfo, &viewMatrix);
 	initRenderObject(&apfel, apfelCreateInfo, &viewMatrix);
 
 	//identity4(obj1.mModel);
@@ -507,6 +514,15 @@ void initRenderScene()
 	getTrans4(T, 0.0f, 0.0f, -15.0f);
 	motion(&sphere, rotX, rotY, rotZ, T);
 	getFrustum(sphere.mProj, 0.25f, 0.25f, 0.5f, 50.0f);
+
+	//Planet
+	identity4(rotX);
+	identity4(rotY);
+	identity4(rotZ);
+	getTrans4(T, 50.0f, 0.0f, -1100000.0f);
+	motion(&planet, rotX, rotY, rotZ, T);
+	scale4(planet.mModel, 1000000.0f, 1000000.0f, 1000000.0f);
+	getFrustum(planet.mProj, 0.25f, 0.25f, 0.5f, 1200000.0f);
 
 	//Apfel
 	getRotX4(rotX, PI / 4.0f);
@@ -608,7 +624,7 @@ void mainLoop()
 	clock_t start_t, end_t, delta_t;
 	uint32_t framecount = 0;
 	boolean quit = FALSE;	
-	mat4 rotX, rotY, rotZ, transT;
+	mat4 rotX, rotY, rotZ, transT, R, Rinv, T;
 
 	memset(&ctrlValues, 0, sizeof(ctrlValues));
 	hThread = CreateThread(NULL, 0, getCtrlValuesThread, &ctrlValues, 0, &threadID);
@@ -635,11 +651,18 @@ void mainLoop()
 			printf("FPS = %u\n", framecount);
 			start_t = clock();
 			framecount = 0;
+
+			dup4(R, viewMatrix);			
+			R[3][0] = 0.0f; R[3][1] = 0.0f; R[3][2] = 0.0f;			
+			invert4(Rinv, R);
+			mult4(T, Rinv, viewMatrix);
+			printMatrix4(T, "ViewMatrix");
 		}
 		
 		glfwPollEvents();
 		updateUniformBuffer(&cube);
 		updateUniformBuffer(&sphere);
+		updateUniformBuffer(&planet);
 		updateUniformBuffer(&apfel);
 		drawFrame();
 	}
