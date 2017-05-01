@@ -34,7 +34,7 @@ VkDeviceMemory depthImageMemory;
 VkImageView depthImageView;
 
 //Functions
-void assert(VkResult result, char *msg);
+void myAssert(VkResult result, char *msg);
 void createInstance(const char *appName, const char **glfwExtensions, uint32_t glfwExtensionsCount);
 void getPhysicalDevices();
 void createLogicalDevice();
@@ -52,6 +52,7 @@ VkVertexInputAttributeDescription getAttributeDescription(uint32_t location, uin
 uint32_t findMemoryTypeIndex(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 void printStats(VkPhysicalDevice physDevice);
 void createDepthResources(uint32_t width, uint32_t height);
+void createTextureImage();
 void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *pImage, VkDeviceMemory *pImageMemory);
 void createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageView *pImageView);
 void transitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout);

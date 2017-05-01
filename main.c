@@ -2,6 +2,9 @@
 	MyVulkanApp
 
 	Date: 23.03.2017
+
+	Links:	https://vulkan-tutorial.com
+			http://www.songho.ca/
 */
 
 #include <stdio.h>
@@ -61,7 +64,7 @@ void createSurface()
 	VkResult result;
 
 	result = glfwCreateWindowSurface(instance, pWindow, NULL, &surface);
-	assert(result, "glfwCreateWindowSurface failed!");
+	myAssert(result, "glfwCreateWindowSurface failed!");
 	/* --> GLFW erledigt das
 	surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 	surfaceCreateInfo.pNext = NULL;
@@ -70,7 +73,7 @@ void createSurface()
 	surfaceCreateInfo.hwnd = NULL;
 
 	result = vkCreateWin32SurfaceKHR(instance, &surfaceCreateInfo, NULL, &surface);
-	assert(result, "vkCreateWin32SurfaceKHR failed!");
+	myAssert(result, "vkCreateWin32SurfaceKHR failed!");
 	*/
 }
 
@@ -96,7 +99,7 @@ void createFramebuffer()
 		framebufferCreateInfo.layers = 1;
 
 		result = vkCreateFramebuffer(device, &framebufferCreateInfo, NULL, &(pFramebuffer[i]));
-		assert(result, "vkCreateFramebuffer failed!\n");
+		myAssert(result, "vkCreateFramebuffer failed!\n");
 	}
 }
 
@@ -117,7 +120,7 @@ void createBuffer(VkBuffer *pBuffer, VkDeviceSize bufferSize, VkBufferUsageFlags
 	bufferCreateInfo.pQueueFamilyIndices = NULL;
 
 	result = vkCreateBuffer(device, &bufferCreateInfo, NULL, pBuffer);
-	assert(result, "vkCreateBuffer failed!\n");
+	myAssert(result, "vkCreateBuffer failed!\n");
 
 	vkGetBufferMemoryRequirements(device, *pBuffer, &memoryRequirements);
 
@@ -127,7 +130,7 @@ void createBuffer(VkBuffer *pBuffer, VkDeviceSize bufferSize, VkBufferUsageFlags
 	memoryAllocateInfo.memoryTypeIndex = findMemoryTypeIndex(memoryRequirements.memoryTypeBits, properties);
 
 	result = vkAllocateMemory(device, &memoryAllocateInfo, NULL, pMemory);
-	assert(result, "vkAllocateMemory failed!\n");
+	myAssert(result, "vkAllocateMemory failed!\n");
 
 	vkBindBufferMemory(device, *pBuffer, *pMemory, 0);
 }
@@ -279,7 +282,7 @@ void createDescriptorPool()
 	poolInfo.pPoolSizes = &poolSize;
 
 	result = vkCreateDescriptorPool(device, &poolInfo, NULL, &descriptorPool);
-	assert(result, "vkCreateDescriptorPool failed!\n");
+	myAssert(result, "vkCreateDescriptorPool failed!\n");
 }
 
 void createDescriptorSet(VkBuffer uniformBuffer, VkDescriptorSet *pDescriptorSet)
@@ -297,7 +300,7 @@ void createDescriptorSet(VkBuffer uniformBuffer, VkDescriptorSet *pDescriptorSet
 	allocInfo.pSetLayouts = layouts;
 
 	result = vkAllocateDescriptorSets(device, &allocInfo, pDescriptorSet);
-	assert(result, "vkAllocateDescriptorSets failed!\n");
+	myAssert(result, "vkAllocateDescriptorSets failed!\n");
 
 	bufferInfo.buffer = uniformBuffer;
 	bufferInfo.offset = 0;
@@ -328,7 +331,7 @@ void createCommandPool()
 	commandPoolCreateInfo.queueFamilyIndex = 0; // ToDo: civ - get correct queue with VK_QUEUE_GRAPHICS_BIT
 
 	result = vkCreateCommandPool(device, &commandPoolCreateInfo, NULL, &commandPool);
-	assert(result, "vkCreateCommandPool!\n");
+	myAssert(result, "vkCreateCommandPool!\n");
 }
 
 void createCommandBuffer()
@@ -354,7 +357,7 @@ void createCommandBuffer()
 
 	pCommandBuffers = malloc(sizeof(VkCommandBuffer)* imagesInSwapChainCount);
 	result = vkAllocateCommandBuffers(device, &commandBufferAllocateInfo, pCommandBuffers);
-	assert(result, "vkAllocateCommandBuffers!\n");
+	myAssert(result, "vkAllocateCommandBuffers!\n");
 
 	commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	commandBufferBeginInfo.pNext = NULL;
@@ -364,7 +367,7 @@ void createCommandBuffer()
 	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
 	{
 		result = vkBeginCommandBuffer(pCommandBuffers[i], &commandBufferBeginInfo);
-		assert(result, "vkBeginCommandBuffer failed!\n");
+		myAssert(result, "vkBeginCommandBuffer failed!\n");
 
 		renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassBeginInfo.pNext = NULL;
@@ -418,7 +421,7 @@ void createCommandBuffer()
 		vkCmdEndRenderPass(pCommandBuffers[i]);
 
 		result = vkEndCommandBuffer(pCommandBuffers[i]);
-		assert(result, "vkEndCommandBuffer failed!\n");
+		myAssert(result, "vkEndCommandBuffer failed!\n");
 	}
 }
 
@@ -432,9 +435,9 @@ void createSemaphore()
 	semaphoreCreateInfo.flags = 0;
 
 	result = vkCreateSemaphore(device, &semaphoreCreateInfo, NULL, &semaphoreImageAvailable);
-	assert(result, "vkCreateSemaphore failed!\n");
+	myAssert(result, "vkCreateSemaphore failed!\n");
 	result = vkCreateSemaphore(device, &semaphoreCreateInfo, NULL, &semaphoreRenderingDone);
-	assert(result, "vkCreateSemaphore failed!\n");
+	myAssert(result, "vkCreateSemaphore failed!\n");
 }
 
 void setupVulkan()
@@ -452,6 +455,7 @@ void setupVulkan()
 	createDescriptorSetLayout();
 	createPipelineLayout();
 	createCommandPool();
+	createTextureImage();
 	createDepthResources(wndWidth, wndHeight);
 	createRenderPass();
 	//createGraphicsPipeline(wndWidth, wndHeight, &createInfo1, &pipeline1);
@@ -542,7 +546,7 @@ void drawFrame()
 	VkPresentInfoKHR presentInfo;
 
 	result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, semaphoreImageAvailable, VK_NULL_HANDLE, &imageIndex);
-	assert(result, "vkAcquireNextImageKHR failed!\n");
+	myAssert(result, "vkAcquireNextImageKHR failed!\n");
 
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.pNext = NULL;
@@ -555,7 +559,7 @@ void drawFrame()
 	submitInfo.pSignalSemaphores = &semaphoreRenderingDone;
 
 	result = vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-	assert(result, "vkQueueSubmit failed!\n");
+	myAssert(result, "vkQueueSubmit failed!\n");
 
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.pNext = NULL;
@@ -567,7 +571,7 @@ void drawFrame()
 	presentInfo.pResults = NULL;
 
 	result = vkQueuePresentKHR(queue, &presentInfo);
-	assert(result, "vkQueuePresentKHR failed!\n");
+	myAssert(result, "vkQueuePresentKHR failed!\n");
 }
 
 void camMotion(mat4 *pMView, mat4 rotX, mat4 rotY, mat4 rotZ, mat4 transT)
@@ -743,9 +747,9 @@ int main(int argc, char *argv[])
 	}
 
 	result = libusb_init(NULL);
-	assert(result, "libusb_init failed!\n");
+	myAssert(result, "libusb_init failed!\n");
 	result = init_hid(&hid_gamecontroller, GAMECONTROLLER_VENDOR_ID, GAMECONTROLLER_PRODUCT_ID, "Game Controller");
-	assert(result, "init_hid failed!\n");
+	myAssert(result, "init_hid failed!\n");
 
 	startGLFW();
 	initRenderScene();

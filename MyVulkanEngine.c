@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 #include "MyVulkanEngine.h"
 
 static const char engineName[] = "MyVulkanEngine";
 static const VkFormat ourFormat = VK_FORMAT_B8G8R8A8_UNORM;
 
-void assert(VkResult result, char *msg)
+void myAssert(VkResult result, char *msg)
 {
 	if (result != VK_SUCCESS)
 	{
@@ -81,7 +83,7 @@ void createInstance(const char *appName, const char **glfwExtensions, uint32_t g
 	*/
 
 	result = vkCreateInstance(&instanceInfo, NULL, &instance);
-	assert(result, "vkCreateInstance failed!");
+	myAssert(result, "vkCreateInstance failed!");
 
 	free(pLayers);
 	free(pExtensions);
@@ -94,18 +96,18 @@ void getPhysicalDevices()
 	VkBool32 surfaceSupport;
 
 	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, NULL);
-	assert(result, "vkEnumeratePhysicalDevices failed!");
+	myAssert(result, "vkEnumeratePhysicalDevices failed!");
 	printf("Anzahl physiaklische Grafikkarten: %u\n\n", physicalDeviceCount);
 
 	pPhysicalDevices = malloc(sizeof(VkPhysicalDevice) * physicalDeviceCount);
 	result = vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, pPhysicalDevices);
-	assert(result, "vkEnumeratePhysicalDevices failed!");
+	myAssert(result, "vkEnumeratePhysicalDevices failed!");
 
 	for (uint32_t i = 0; i<physicalDeviceCount; i++)
 		printStats(pPhysicalDevices[i]);
 
 	result = vkGetPhysicalDeviceSurfaceSupportKHR(pPhysicalDevices[0], 0, surface, &surfaceSupport);
-	assert(result, "vkGetPhysicalDeviceSurfaceSupportKHR failed!");
+	myAssert(result, "vkGetPhysicalDeviceSurfaceSupportKHR failed!");
 	if (!surfaceSupport)
 	{
 		printf("Error: Surface not Supported!\n");
@@ -145,7 +147,7 @@ void createLogicalDevice()
 	deviceCreateInfo.pEnabledFeatures = &usedFeatures;
 
 	result = vkCreateDevice(pPhysicalDevices[0], &deviceCreateInfo, NULL, &device);
-	assert(result, "vkCreateDevice failed!");
+	myAssert(result, "vkCreateDevice failed!");
 
 	vkGetDeviceQueue(device, 0, 0, &queue);
 }
@@ -176,7 +178,7 @@ void createSwapchain(uint32_t width, uint32_t height)
 	swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
 
 	result = vkCreateSwapchainKHR(device, &swapchainCreateInfo, NULL, &swapchain);
-	assert(result, "vkCreateSwapchainKHR failed!\n");
+	myAssert(result, "vkCreateSwapchainKHR failed!\n");
 }
 
 void createImageViews()
@@ -189,7 +191,7 @@ void createImageViews()
 	printf("Anzahl Images in Swapchain: %u\n", imagesInSwapChainCount);
 	pSwapchainImages = malloc(sizeof(VkImage) * imagesInSwapChainCount);
 	result = vkGetSwapchainImagesKHR(device, swapchain, &imagesInSwapChainCount, pSwapchainImages);
-	assert(result, "vkGetSwapchainImagesKHR failed!\n");
+	myAssert(result, "vkGetSwapchainImagesKHR failed!\n");
 
 	pImageViews = malloc(sizeof(VkImageView) * imagesInSwapChainCount);
 	for (uint32_t i = 0; i < imagesInSwapChainCount; i++)
@@ -211,7 +213,7 @@ void createImageViews()
 		imageViewCreateInfo.subresourceRange.layerCount = 1;
 
 		result = vkCreateImageView(device, &imageViewCreateInfo, NULL, &pImageViews[i]);
-		assert(result, "vkCreateImageView failed!\n");
+		myAssert(result, "vkCreateImageView failed!\n");
 	}
 
 	free(pSwapchainImages);
@@ -232,7 +234,7 @@ void createDescriptorSetLayout()
 	layoutInfo.pBindings = &descriptorSetLayoutBinding;
 
 	result = vkCreateDescriptorSetLayout(device, &layoutInfo, NULL, &descriptorSetLayout);
-	assert(result, "vkCreateDescriptorSetLayout failed!\n");
+	myAssert(result, "vkCreateDescriptorSetLayout failed!\n");
 }
 
 void createPipelineLayout()
@@ -252,7 +254,7 @@ void createPipelineLayout()
 	pipelineLayoutCreateInfo.pPushConstantRanges = NULL;
 
 	result = vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, NULL, &pipelineLayout);
-	assert(result, "vkCreatePipelineLayout failed!\n");
+	myAssert(result, "vkCreatePipelineLayout failed!\n");
 }
 
 void createRenderPass()
@@ -325,7 +327,7 @@ void createRenderPass()
 	renderPathCreateInfo.pDependencies = &subpassDependency;
 
 	result = vkCreateRenderPass(device, &renderPathCreateInfo, NULL, &renderPath);
-	assert(result, "vkCreateRenderPass failed!\n");
+	myAssert(result, "vkCreateRenderPass failed!\n");
 }
 
 void createGraphicsPipeline(uint32_t width, uint32_t height, PipelineCreateInfo *pPipelineCreateInfo, VkPipeline *pPipeline)
@@ -487,7 +489,7 @@ void createGraphicsPipeline(uint32_t width, uint32_t height, PipelineCreateInfo 
 	pipelineCreateInfo.basePipelineIndex = -1;
 
 	result = vkCreateGraphicsPipelines(device, NULL, 1, &pipelineCreateInfo, NULL, pPipeline);
-	assert(result, "vkCreateGraphicsPipelines failed!\n");
+	myAssert(result, "vkCreateGraphicsPipelines failed!\n");
 }
 
 void createShaderModule(char *filename, VkShaderModule *shaderModule)
@@ -505,7 +507,7 @@ void createShaderModule(char *filename, VkShaderModule *shaderModule)
 	shaderCreateInfo.pCode = (uint32_t*)shaderCode;
 
 	result = vkCreateShaderModule(device, &shaderCreateInfo, NULL, shaderModule);
-	assert(result, "vkCreateShaderModule failed!\n");
+	myAssert(result, "vkCreateShaderModule failed!\n");
 }
 
 int loadShader(char **shaderStr, char *fileName)
@@ -675,6 +677,27 @@ void createDepthResources(uint32_t width, uint32_t height)
 	transitionImageLayout(depthImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
+void createTextureImage()
+{
+	int texWidth, texHeight, texChannels;
+	VkDeviceSize imageSize;
+	stbi_uc *pixels;
+	VkImage stagingImage;
+	VkDeviceMemory stagingImageMemory;
+	void *data;
+
+	pixels = stbi_load("texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	if (!pixels) myAssert(-999, "Failed to load texture image!\n");
+
+	imageSize = texWidth * texHeight * 4;
+
+	createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &stagingImage, &stagingImageMemory);
+	vkMapMemory(device, stagingImageMemory, 0, imageSize, 0, &data);
+	memcpy(data, pixels, imageSize); // ToDo: Überprüfen ob Zeilengröße in Bytes ein Vielfaches von 4 ist!
+	vkUnmapMemory(device, stagingImageMemory);
+	stbi_image_free(pixels);
+}
+
 void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *pImage, VkDeviceMemory *pImageMemory)
 {
 	VkResult result;
@@ -701,7 +724,7 @@ void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;	
 
 	result = vkCreateImage(device, &imageCreateInfo, NULL, pImage);
-	assert(result, "vkCreateImage() in createImage() failed!\n");
+	myAssert(result, "vkCreateImage() in createImage() failed!\n");
 
 	vkGetImageMemoryRequirements(device, *pImage, &memRequirements);
 
@@ -737,7 +760,7 @@ void createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFl
 	viewInfo.subresourceRange.layerCount = 1;
 
 	result = vkCreateImageView(device, &viewInfo, NULL, pImageView);
-	assert(result, "vkCreateImageView() in createImageView() failed!\n");
+	myAssert(result, "vkCreateImageView() in createImageView() failed!\n");
 }
 
 void transitionImageLayout(VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout)
