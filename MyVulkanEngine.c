@@ -696,6 +696,8 @@ void createTextureImage()
 	memcpy(data, pixels, imageSize); // ToDo: Überprüfen ob Zeilengröße in Bytes ein Vielfaches von 4 ist!
 	vkUnmapMemory(device, stagingImageMemory);
 	stbi_image_free(pixels);
+
+	createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &textureImage, &textureImageMemory);
 }
 
 void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *pImage, VkDeviceMemory *pImageMemory)

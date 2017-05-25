@@ -29,8 +29,8 @@ VkDeviceMemory vertexBufferDeviceMemory;
 VkDeviceMemory indexBufferDeviceMemory;
 VkDescriptorPool descriptorPool;
 VkDescriptorSet descriptorSet, descriptorSet2;
-VkImage depthImage;
-VkDeviceMemory depthImageMemory;
+VkImage textureImage, depthImage;
+VkDeviceMemory textureImageMemory, depthImageMemory;
 VkImageView depthImageView;
 
 //Functions
